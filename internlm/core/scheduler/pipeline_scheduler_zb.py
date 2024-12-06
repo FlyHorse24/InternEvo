@@ -21,9 +21,14 @@ from .pipeline_scheduler_1f1b import (
     PipelineScheduler,
     pack_return_tensors,
 )
+from enum import Enum
 
 logger = get_logger(__file__)
 
+class Stage(Enum):
+    FORWARD = 'f'
+    BACKWARD = 'b'
+    WEIGHT = 'w'
 
 class WeightGradStore:
     """
@@ -140,6 +145,194 @@ class ZeroBubblePipelineScheduler(PipelineScheduler):
         )
         WeightGradStore.set_pp_mode("ZBH1")
         WeightGradStore.set_optim(optimizer)
+    # print(f'device:{get_current_device()}')
+    # print(f'local_rank:{gpc.get_local_rank(ParallelMode.PIPELINE)}')
+    # print(f'ranks_in_group:{gpc.get_ranks_in_group(ParallelMode.PIPELINE)}')
+    # print(f'global_rank:{gpc.get_global_rank()}')
+    # print(f'prev_rank:{gpc.get_prev_global_rank(ParallelMode.PIPELINE)}')
+    # print(f'next_rank:{gpc.get_next_global_rank(ParallelMode.PIPELINE)}')
+    # print(f'ops:{len(ops)}')
+    # print(f'p2p_time_local_rank:{gpc.get_local_rank(ParallelMode.PIPELINE)}')
+    # import pdb; pdb.set_trace()
+    def _unifiedPP2(self, engine, return_loss=True, return_output_label=True):
+        """
+        This function schedules the forward and backward computation of microbatches in the pipeline in a 1F1B manner.
+        It consists of three stages: warmup, 1F1B, and cooldown.
+
+        1. Warmup Stage:
+        The warmup stage performs num_warmup forward microsteps. The calculation of num_warmup is the pipeline length
+        minus the rank of the current pipeline minus 1. For each microstep, it receives data as input from the previous
+        stage, performs the forward computation, and then sends the result to the next stage.
+
+        2. 1F1B Stage:
+        The 1F1B stage consists of pairs of forward and backward microsteps. It performs num_1f1b_micropairs iterations,
+        where num_1f1b_micropairs is calculated as the total number of microbatches minus the number of microbatches in
+        the warmup stage. In each iteration, it first performs a forward computation, sends the result to the next
+        stage, receives input for the backward computation, performs the backward computation, and finally sends the
+        result to the previous stage to receive input for the next forward computation.
+
+        3. Cooldown Stage:
+        The cooldown stage performs the same number of iterations as the warmup stage. In each iteration, it receives
+        input for the backward computation, performs the backward computation, and finally sends the result to the
+        previous stage.
+
+        There are two special cases to consider:
+        1. The first stage of the pipeline does not need to receive forward input or send backward output. The last
+        stage does not need to send forward output or receive backward input.
+        2. Pay attention to the communication between stages and use additional communication to bridge the gap.
+
+        Args:
+            engine (Engine): The engine used for computation.
+            return_loss (bool, optional): Whether to return the accumulated loss.
+            return_output_label (bool, optional): Whether to return outputs and labels.
+
+        Returns:
+            Tuple[Union[torch.Tensor, None], Union[torch.Tensor, None], Union[torch.Tensor, None]]:
+            The output, label, and accumulated loss.
+        """
+
+        # Input, output tensors only need to be saved when doing backward passes
+        input_objs = []
+        output_objs = []
+        moe_losses = []
+        return_tensors = []
+        output_obj_caches = []
+        input_obj_caches = []
+        accum_loss = (
+            torch.zeros(1, device=get_current_device())
+            if return_loss and gpc.is_pipeline_last_stage(ignore_virtual=True)
+            else None
+        )
+        accum_moe_loss = torch.zeros(1, device=get_current_device())
+
+        # Used for tensor meta information communication
+        forward_recv_shapes = self.tensor_shape
+        backward_recv_shapes = None
+        need_forward_meta = self.tensor_shape is None
+
+        device_steps = [
+        [('f', 0, 0, 0), ('f', 1, 0, 4), ('f', 2, 0, 8), ('f', 3 ,0, 12), ('b', 0, 0, 34), ('w', 0, 0, 40), ('b', 1, 0, 44), ('w', 1, 0, 50), ('b', 2, 0, 54), ('w', 2, 0, 60), ('b', 3, 0, 64), ('w', 3, 0, 70)], 
+        [('f', 0, 1, 4), ('f', 1, 1, 8), ('f', 2, 1, 12), ('b', 0, 1, 28), ('f', 3, 1, 34), ('b', 1, 1, 38), ('w', 0, 1, 44), ('b', 2, 1, 48), ('w', 1, 1, 54), ('b', 3, 1, 58), ('w', 2, 1, 66), ('w', 3, 1, 70)], 
+        [('f', 0, 2, 8), ('f', 1, 2, 12), ('b', 0, 2, 22), ('f', 2, 2, 28), ('b', 1, 2, 32), ('f', 3, 2, 38), ('b', 2, 2, 42), ('b', 3, 2, 52), ('w', 0, 2, 58), ('w', 1, 2, 62), ('w', 2, 2, 66), ('w', 3, 2, 70)], 
+        [('f', 0, 3, 12), ('b', 0, 3, 16), ('f', 1, 3, 22), ('b', 1, 3, 26), ('f', 2, 3, 32), ('b', 2, 3, 36), ('f', 3, 3, 42), ('b', 3, 3, 46), ('w', 0, 3, 52), ('w', 1, 3, 56), ('w', 2, 3, 60), ('w', 3, 3, 64)]]
+      
+        last_stage = 3
+        steps = device_steps[gpc.get_local_rank(ParallelMode.PIPELINE)]
+        for s in range(len(steps)):
+            step_type, microbatch_id, stage_id, start_time = steps[s]
+            if s<len(steps)-1:
+                next_step_type = steps[s+1][0]
+            else:
+                next_step_type = ''
+            if s>0:
+                prev_step_type = steps[s-1][0]
+            else:
+                prev_step_type = ''
+            if step_type == Stage.FORWARD.value:# Forward pass
+                # Receive the input from the previous stage
+                if not gpc.is_first_rank(ParallelMode.PIPELINE):
+                    if prev_step_type == Stage.BACKWARD.value:
+                        input_obj = input_obj_caches.pop(0)
+                    else:
+                        if forward_recv_shapes is None:
+                            forward_recv_shapes = comm.recv_obj_meta()
+                        input_obj = comm.recv_forward(
+                            forward_recv_shapes,
+                            dtype=self.dtype,
+                            scatter_gather_tensors=self.scatter_gather_tensors,
+                        )
+
+                else:
+                    input_obj = None
+
+                # Perform forward computation
+                output_obj, moe_loss = self._forward_step(
+                    engine,
+                    input_obj,
+                    return_tensors,
+                    return_output_label=return_output_label,
+                    accum_loss=accum_loss,
+                    accum_moe_loss=accum_moe_loss,
+                )
+
+                if not gpc.is_last_rank(ParallelMode.PIPELINE):
+                    if isinstance(output_obj, torch.Tensor):
+                        backward_recv_shapes = output_obj.shape
+                    else:
+                        backward_recv_shapes = [out_tensor.shape for out_tensor in output_obj]
+
+                    if need_forward_meta:
+                        comm.send_obj_meta(output_obj)
+                        need_forward_meta = False  # send only once.
+
+                # Send the output of forward computation of this pipeline stage to the next pipeline stage as input for
+                # forward computation
+
+                if not gpc.is_last_rank(ParallelMode.PIPELINE):
+                    assert output_obj.dtype == self.dtype
+                    if next_step_type == Stage.BACKWARD.value:
+                        output_obj_cache = comm.send_forward_recv_backward(
+                            output_obj,
+                            backward_recv_shapes,
+                            dtype=self.dtype,
+                            scatter_gather_tensors=self.scatter_gather_tensors,
+                        )
+                        output_obj_caches.append(output_obj_cache)
+                    else:
+                        comm.send_forward(output_obj, scatter_gather_tensors=self.scatter_gather_tensors)
+
+                input_objs.append(input_obj)
+                output_objs.append(output_obj)
+                moe_losses.append(moe_loss)
+
+            elif step_type == Stage.BACKWARD.value:# Backward pass
+                input_obj = input_objs.pop(0)
+                output_obj = output_objs.pop(0)
+                moe_loss = moe_losses.pop(0)
+
+                if not gpc.is_last_rank(ParallelMode.PIPELINE):
+                    if prev_step_type == Stage.FORWARD.value:
+                        output_obj_grad = output_obj_caches.pop(0)
+                    else:
+                        output_obj_grad = comm.recv_backward(
+                            backward_recv_shapes,
+                            dtype=self.dtype,
+                            scatter_gather_tensors=self.scatter_gather_tensors,
+                        )
+
+                else:
+                    output_obj_grad = None
+                
+                input_obj_grad = self._backward_step(
+                    engine, microbatch_id, input_obj, output_obj, output_obj_grad, moe_loss
+                )
+
+                if not gpc.is_first_rank(ParallelMode.PIPELINE):
+                    if next_step_type == Stage.FORWARD.value:
+                        input_obj_cache = comm.send_backward_recv_forward(
+                            input_obj_grad,
+                            forward_recv_shapes,
+                            dtype=self.dtype,
+                            scatter_gather_tensors=self.scatter_gather_tensors,
+                        )
+                        input_obj_caches.append(input_obj_cache)
+                    else:
+                        comm.send_backward(input_obj_grad, scatter_gather_tensors=self.scatter_gather_tensors)
+                        
+                WeightGradStore.flush()
+
+            elif step_type == Stage.WEIGHT.value: # Weight update
+                WeightGradStore.pop()
+
+        output, label = pack_return_tensors(return_tensors) if len(return_tensors) > 0 else (None, None)
+
+        if hasattr(gpc.config.model, "num_experts") and gpc.config.model.num_experts > 1:
+            dist.all_reduce(accum_moe_loss, group=gpc.get_group(ParallelMode.PIPELINE))
+
+        if accum_loss is not None:
+            accum_loss += accum_moe_loss
+
+        return output, label, accum_loss, accum_moe_loss
 
     def _forward_backward_step(self, engine, return_loss=True, return_output_label=True):
         """

@@ -211,6 +211,24 @@ def partition_uniform(num_items: int, pipeline_parallel_size: int, num_chunks: i
     assert set(indexes) == set(list(range(num_items))), (indexes, num_items)  # should have the same indexes as expected
     return parts
 
+def partition_uniform_unifiedPP(num_items: int, pipeline_parallel_size: int, num_chunks: int):
+    
+    Stage_alignment=[[0, 4], [1, 5], [2, 6], [3, 7]]
+
+    parts = [[] for _ in range(pipeline_parallel_size)]
+    chunk_size = num_items // num_chunks // pipeline_parallel_size
+    for d in range(Stage_alignment):
+        for stage in Stage_alignment[d]:
+            st = stage * chunk_size
+            parts[d].append((st, st+chunk_size))
+
+    indexes = []
+    for _parts in parts:
+        for s, e in _parts:
+            indexes.extend(list(range(s, e)))
+    assert len(indexes) == len(set(indexes)), indexes  # should have no duplicates
+    assert set(indexes) == set(list(range(num_items))), (indexes, num_items)  # should have the same indexes as expected
+    return parts
 
 def pipeline_parallel_sharding_wrapper(
     num_layers: int, num_chunks: int, model_builder: Callable, device: torch.device, **kwargs

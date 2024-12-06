@@ -10,7 +10,7 @@ MLP_RATIO = 3.5
 NUM_LAYER = 32
 
 model = dict(
-    num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
+    num_chunks=2,  # if num_chunks > 1, interleaved pipeline scheduler is used.
     checkpoint=0.2,  # The proportion of layers for activation aheckpointing, the optional value are True/False/[0-1]
     dtype="torch.bfloat16",  # Support: "torch.float16", "torch.half", "torch.bfloat16", "torch.float32", "torch.tf32"
     embed_split_hidden=True,
@@ -32,7 +32,7 @@ model = dict(
 
 hybrid_zero_optimizer = dict(
     # Enable low_level_optimzer overlap_communication
-    overlap_sync_grad=True,
+    overlap_sync_grad=False,
     overlap_sync_param=False,
     # bucket size for nccl communication params
     reduce_bucket_size=512 * 1024 * 1024,
@@ -65,8 +65,8 @@ weight parallel (dict):
     2. overlap: bool, enable/disable all_gather/reduce_scatter communication overlap, defaults to False.
 """
 parallel = dict(
-    zero1=dict(size=8),
+    zero1=dict(size=1),
     tensor=dict(size=1, mode="mtp"),
-    pipeline=dict(size=1, interleaved_overlap=True),
+    pipeline=dict(size=4, interleaved_overlap=True, mode="1f1b"),
     weight=dict(size=1, overlap=True),
 )
