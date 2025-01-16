@@ -344,6 +344,9 @@ class GroupedGemmSPFusedDenseFunc(torch.autograd.Function):
         ctx.compute_weight_gradient = weight.requires_grad
         ctx.backend = backend
 
+        saved_x = None if ctx.compute_weight_gradient is False else x
+        ctx.save_for_backward(saved_x, weight, batch_sizes)
+
         if torch.is_autocast_enabled():
             x = x.to(dtype=torch.get_autocast_gpu_dtype())
         x = x.contiguous()
@@ -358,8 +361,7 @@ class GroupedGemmSPFusedDenseFunc(torch.autograd.Function):
 
             output = torch.matmul(x, weight)
 
-        saved_x = None if ctx.compute_weight_gradient is False else x
-        ctx.save_for_backward(saved_x, weight, batch_sizes)
+        assert len(output.shape) == len(x.shape)
 
         return output
 
@@ -371,6 +373,14 @@ class GroupedGemmSPFusedDenseFunc(torch.autograd.Function):
         grad_output = grad_output.contiguous()
         x, weight, batch_sizes = ctx.saved_tensors
         grad_input, grad_weight = None, None
+
+        if grad_output.numel() == 0:
+            if ctx.needs_input_grad[1]:
+                grad_weight = torch.zeros_like(weight)
+            if ctx.needs_input_grad[0]:
+                grad_input = torch.zeros_like(x)
+
+            return grad_input, grad_weight, None, None, None, None, None
 
         if ctx.needs_input_grad[1]:
             assert ctx.compute_weight_gradient
@@ -450,6 +460,8 @@ class GroupedGemmWPFusedDenseFunc(torch.autograd.Function):
         saved_x = None if ctx.compute_weight_gradient is False else x
         ctx.save_for_backward(saved_x, weight, batch_sizes)
 
+        assert len(output.shape) == len(x.shape)
+
         return output
 
     @staticmethod
@@ -461,19 +473,27 @@ class GroupedGemmWPFusedDenseFunc(torch.autograd.Function):
         backend = ctx.backend
         full_weight_shape = ctx.full_weight_shape
 
+        if grad_output.numel() == 0:
+            if ctx.needs_input_grad[1]:
+                total_weight_shape = torch.Size(
+                    (full_weight_shape.numel() // full_weight_shape[-1], full_weight_shape[-1])
+                )
+                grad_weight = torch.zeros(total_weight_shape, dtype=weight.dtype, device=weight.device)
+                grad_weight, grad_weight_sync = communicator.grad_hook(
+                    grad_weight, async_op=True, module=module, is_bias=False
+                )
+            if ctx.needs_input_grad[0]:
+                grad_input = torch.zeros_like(x)
+            if ctx.needs_input_grad[1]:
+                grad_weight_sync.wait()
+
+            return grad_input, grad_weight, None, None, None, None, None
+
         grad_output = grad_output.contiguous()
 
         total_weight = communicator.weight_hook(weight, module=module)
         total_weight = total_weight.reshape(full_weight_shape)
         grad_input, grad_weight = None, None
-        if grad_output.numel() == 0:
-            if ctx.needs_input_grad[0]:
-                grad_input = torch.zeros_like(x)
-            if ctx.needs_input_grad[1]:
-                grad_weight = torch.zeros_like(total_weight).reshape(-1, full_weight_shape[-1])
-                grad_weight, _ = communicator.grad_hook(grad_weight, async_op=False, module=module, is_bias=False)
-
-            return grad_input, grad_weight, None, None, None, None, None
 
         if ctx.needs_input_grad[1]:
             assert ctx.compute_weight_gradient
@@ -602,8 +622,10 @@ class ParallelLinearWithCommExt(nn.Linear):
             split_features = out_features if split_mode == "column" else in_features
             multiple = split_features // multiple_of
             # We want to split @multiple across world_size, but it could be an uneven split
+            # uneven split is forbidden
             div = multiple // world_size
             mod = multiple % world_size
+            assert mod == 0, "linear module uneven split is forbidden"
             # The first @mod ranks get @div + 1 copies, the rest get @div copies
             local_multiple = div + int(rank < mod)
 

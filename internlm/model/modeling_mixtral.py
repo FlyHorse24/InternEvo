@@ -138,7 +138,7 @@ class MixtralMoEDecoder(nn.Module):
                 mlp_layer_fusion=mlp_layer_fusion,
                 multiple_of=multiple_of,
                 # TODO: to support more activation functions
-                activation_type="swiglu" if use_swiglu else "swiglu",
+                activation_type="swiglu" if use_swiglu else "gelu",
             )
         else:
             # replace mlp by MoE module. The expert in MoE is a FeedForward module.
@@ -156,7 +156,7 @@ class MixtralMoEDecoder(nn.Module):
                 mlp_layer_fusion=mlp_layer_fusion,
                 multiple_of=multiple_of,
                 # TODO: to support more activation functions
-                activation_type="swiglu" if use_swiglu else "swiglu",
+                activation_type="swiglu" if use_swiglu else "gelu",
             )
 
         self.use_swiglu = use_swiglu
@@ -214,7 +214,7 @@ class MixtralMoEDecoder(nn.Module):
         def _dropout_and_norm_attn(_hidden_states):
             _dropped = self.dropout1(_hidden_states)
             _residual = _dropped
-            _hidden_states = self.norm1(_residual.float())
+            _hidden_states = self.norm1(_residual.to(self.norm1.weight.dtype))
             return _residual, _hidden_states
 
         if self.dropout_selective_checkpoint:
@@ -231,7 +231,7 @@ class MixtralMoEDecoder(nn.Module):
         def _dropout_and_norm_ffn(_residual, _hidden_states):
             _dropped = self.dropout2(_hidden_states)
             _residual = (_dropped + _residual) if _residual is not None else _dropped
-            _hidden_states = self.norm2(_residual.float())
+            _hidden_states = self.norm2(_residual.to(self.norm2.weight.dtype))
             return _residual, _hidden_states
 
         if self.dropout_selective_checkpoint:
