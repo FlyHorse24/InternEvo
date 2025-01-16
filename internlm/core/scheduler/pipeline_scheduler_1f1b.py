@@ -24,14 +24,9 @@ from internlm.utils.logger import get_logger
 from internlm.utils.timeout import llm_timeout
 
 from .base_scheduler import BaseScheduler
-from enum import Enum
 
 logger = get_logger(__file__)
 
-class Stage(Enum):
-    FORWARD = 'f'
-    BACKWARD = 'b'
-    WEIGHT = 'w'
 
 def get_tensor_shape():
     if hasattr(gpc.config, "TENSOR_SHAPE"):
@@ -466,7 +461,7 @@ class PipelineScheduler(BaseScheduler):
 
         return output, label, accum_loss, accum_moe_loss
 
-    def _forward_backward_step(self, engine, return_loss=True, return_output_label=True):
+    def _forward_backward_step(self, engine, return_loss=True, return_output_label=True, batch_count=0):
         """
         This function schedules the forward and backward computation of microbatches in the pipeline in a 1F1B manner.
         It consists of three stages: warmup, 1F1B, and cooldown.
@@ -670,161 +665,8 @@ class PipelineScheduler(BaseScheduler):
 
         return output, label, accum_loss, accum_moe_loss
 
-    def _unifiedPP2(self, engine, return_loss=True, return_output_label=True):
-        """
-        This function schedules forward and backward computation based on an input dictionary that specifies the order of
-        operations and their start times. The input dictionary contains keys with the format 'f_#_#' or 'b_#_#', where:
-        - 'f' represents forward pass, 'b' represents backward pass.
-        - The first number is the microbatch id.
-        - The second number is the pipeline stage id.
-        The values in the dictionary represent the start time of each operation.
-
-        Args:
-            engine (Engine): The engine used for computation.
-            input_schedule (dict): Dictionary containing the operation schedule, with keys as 'f_#_#' or 'b_#_#' and values as start times.
-            return_loss (bool, optional): Whether to return the accumulated loss.
-            return_output_label (bool, optional): Whether to return outputs and labels.
-
-        Returns:
-            Tuple[Union[torch.Tensor, None], Union[torch.Tensor, None], Union[torch.Tensor, None]]:
-            The output, label, and accumulated loss.
-        """
-        input_objs = []
-        output_objs = []
-        moe_losses = []
-        return_tensors = []
-        output_obj_caches = []
-        input_obj_caches = []
-        accum_loss = (
-            torch.zeros(1, device=get_current_device())
-            if return_loss and gpc.is_pipeline_last_stage(ignore_virtual=True)#mth:
-            else None
-        )
-        accum_moe_loss = torch.zeros(1, device=get_current_device())
-
-        # Used for tensor meta information communication
-        forward_recv_shapes = self.tensor_shape
-        backward_recv_shapes = None
-        need_forward_meta = self.tensor_shape is None
-
-        device_steps = [[('f', 0, 0, 0), ('f', 1, 0, 4), ('f', 2, 0, 8), ('f', 3, 0, 12), ('b', 0, 0, 34), ('b', 1, 0, 44), ('b', 2, 0, 54), ('b', 3, 0, 64)], 
-                        [('f', 0, 1, 4), ('f', 1, 1, 8), ('f', 2, 1, 12), ('b', 0, 1, 28), ('f', 3, 1, 34), ('b', 1, 1, 38), ('b', 2, 1, 48), ('b', 3, 1, 58)], 
-                        [('f', 0, 2, 8), ('f', 1, 2, 12), ('b', 0, 2, 22), ('f', 2, 2, 28), ('b', 1, 2, 32), ('f', 3, 2, 38), ('b', 2, 2, 42), ('b', 3, 2, 52)], 
-                        [('f', 0, 3, 12), ('b', 0, 3, 16), ('f', 1, 3, 22), ('b', 1, 3, 26), ('f', 2, 3, 32), ('b', 2, 3, 36), ('f', 3, 3, 42), ('b', 3, 3, 46)]]
-
-        # Iterate through the sorted steps and execute forward or backward computations
-        steps = device_steps[gpc.get_local_rank(ParallelMode.PIPELINE)]
-        for s in range(len(steps)):
-            step_type, microbatch_id, stage_id, start_time = steps[s]
-            if s<len(steps)-1:
-                next_step_type = steps[s+1][0]
-            else:
-                next_step_type = ''
-            if s>0:
-                prev_step_type = steps[s-1][0]
-            else:
-                prev_step_type = ''
-            if step_type == Stage.FORWARD.value:# Forward pass
-
-                # Receive the input from the previous stage
-                if not gpc.is_first_rank(ParallelMode.PIPELINE):
-                    if prev_step_type == Stage.BACKWARD.value:
-                        input_obj = input_obj_caches.pop(0)
-                    else:
-                        if forward_recv_shapes is None:
-                            forward_recv_shapes = comm.recv_obj_meta()
-                        input_obj = comm.recv_forward(
-                            forward_recv_shapes,
-                            dtype=self.dtype,
-                            scatter_gather_tensors=self.scatter_gather_tensors,
-                        )
-                else:
-                    input_obj = None
-
-                # Perform forward computation
-                output_obj, moe_loss = self._forward_step(
-                    engine,
-                    input_obj,
-                    return_tensors,
-                    return_output_label=return_output_label,
-                    accum_loss=accum_loss,
-                    accum_moe_loss=accum_moe_loss,
-                )
-
-                if not gpc.is_last_rank(ParallelMode.PIPELINE):
-                    if isinstance(output_obj, torch.Tensor):
-                        backward_recv_shapes = output_obj.shape
-                    else:
-                        backward_recv_shapes = [out_tensor.shape for out_tensor in output_obj]
-
-                    if need_forward_meta:
-                        comm.send_obj_meta(output_obj)
-                        need_forward_meta = False  # send only once.
-
-                # Send the output of forward computation of this pipeline stage to the next pipeline stage as input for
-                # forward computation
-                if not gpc.is_last_rank(ParallelMode.PIPELINE):
-                    assert output_obj.dtype == self.dtype
-                    if next_step_type == Stage.BACKWARD.value:
-                        output_obj_cache = comm.send_forward_recv_backward(
-                            output_obj,
-                            backward_recv_shapes,
-                            dtype=self.dtype,
-                            scatter_gather_tensors=self.scatter_gather_tensors,
-                        )
-                        output_obj_caches.append(output_obj_cache)
-                    else:
-                        comm.send_forward(output_obj, scatter_gather_tensors=self.scatter_gather_tensors)
-
-                input_objs.append(input_obj)
-                output_objs.append(output_obj)
-                moe_losses.append(moe_loss)
-
-            elif step_type == Stage.BACKWARD.value:# Backward pass
-                input_obj = input_objs.pop(0)
-                output_obj = output_objs.pop(0)
-                moe_loss = moe_losses.pop(0)
-
-                if not gpc.is_last_rank(ParallelMode.PIPELINE):
-                    if prev_step_type == Stage.FORWARD.value:
-                        output_obj_grad = output_obj_caches.pop(0)                    
-                    else:
-                        output_obj_grad = comm.recv_backward(
-                            backward_recv_shapes,
-                            dtype=self.dtype,
-                            scatter_gather_tensors=self.scatter_gather_tensors,
-                        )
-                else:
-                    output_obj_grad = None
-                
-                input_obj_grad = self._backward_step(
-                    engine, microbatch_id, input_obj, output_obj, output_obj_grad, moe_loss
-                )
-
-                if not gpc.is_first_rank(ParallelMode.PIPELINE):
-                    if next_step_type == Stage.FORWARD.value:
-                        input_obj_cache = comm.send_backward_recv_forward(
-                            input_obj_grad,
-                            forward_recv_shapes,
-                            dtype=self.dtype,
-                            scatter_gather_tensors=self.scatter_gather_tensors,
-                        )
-                        input_obj_caches.append(input_obj_cache)
-                    else:
-                        comm.send_backward(input_obj_grad, scatter_gather_tensors=self.scatter_gather_tensors)
-
-        output, label = pack_return_tensors(return_tensors) if len(return_tensors) > 0 else (None, None)
-
-        if hasattr(gpc.config.model, "num_experts") and gpc.config.model.num_experts > 1:
-            dist.all_reduce(accum_moe_loss, group=gpc.get_group(ParallelMode.PIPELINE))
-
-        if accum_loss is not None:
-            accum_loss += accum_moe_loss
-
-        return output, label, accum_loss, accum_moe_loss
-
     @llm_timeout(func_name="nointerleaved_forward_backward_step")
-    def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True):
+    def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True, batch_count=0):
         """Runs non-interleaved 1F1B schedule, with communication between pipeline stages.
         Returns a tuple with losses if the last stage, an empty tuple otherwise.
 
@@ -852,11 +694,8 @@ class PipelineScheduler(BaseScheduler):
                 engine, return_loss, return_output_label
             )
         else:
-            # output, label, accum_loss, accum_moe_loss = self._forward_backward_step(
-            #     engine, return_loss, return_output_label
-            # )
-            output, label, accum_loss, accum_moe_loss = self._unifiedPP2(
-                engine, return_loss, return_output_label
+            output, label, accum_loss, accum_moe_loss = self._forward_backward_step(
+                engine, return_loss, return_output_label, batch_count
             )
 
         # Compatible for non-moe
@@ -864,7 +703,6 @@ class PipelineScheduler(BaseScheduler):
             return output, label, accum_loss, accum_moe_loss
         else:
             return output, label, accum_loss
-
 
 class InterleavedPipelineScheduler(PipelineScheduler):
     """
@@ -1101,211 +939,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         microbatch_id = num_microbatch_group * self._pp_size + step_id_in_group % self._pp_size
 
         return microbatch_id
-    #mth start
-    def _get_chunk_by_stage(self, stage_id: int) -> int:
-        stage_alignment=[[0, 4], [1, 5], [2, 6], [3, 7]]
-        for device_stage in stage_alignment:
-            for chunk_id in range(device_stage):
-                if device_stage[chunk_id] == stage_id:
-                    return chunk_id
 
-    def build_stage_to_device_map(self, stage_alignment):
-        stage_to_device = {}
-        for device_id in range(stage_alignment):
-            for stage_id in stage_alignment[device_id]:
-                stage_to_device[stage_id] = device_id
-        return stage_to_device
-
-    def _unifiedPP2(self, engine, return_loss=True, return_output_label=True):
-        stage_alignment=[[0, 4], [1, 5], [2, 6], [3, 7]]
-        stage_to_device = self.build_stage_to_device_map(stage_alignment)
-        device_steps = [[('f', 0, 0, 0), ('f', 1, 0, 4), ('f', 2, 0, 8), ('f', 3, 0, 12), ('b', 0, 0, 34), ('b', 1, 0, 44), ('b', 2, 0, 54), ('b', 3, 0, 64)],
-                        [('f', 0, 1, 4), ('f', 1, 1, 8), ('f', 2, 1, 12), ('b', 0, 1, 28), ('f', 3, 1, 34), ('b', 1, 1, 38), ('b', 2, 1, 48), ('b', 3, 1, 58)],
-                        [('f', 0, 2, 8), ('f', 1, 2, 12), ('b', 0, 2, 22), ('f', 2, 2, 28), ('b', 1, 2, 32), ('f', 3, 2, 38), ('b', 2, 2, 42), ('b', 3, 2, 52)],
-                        [('f', 0, 3, 12), ('b', 0, 3, 16), ('f', 1, 3, 22), ('b', 1, 3, 26), ('f', 2, 3, 32), ('b', 2, 3, 36), ('f', 3, 3, 42), ('b', 3, 3, 46)]]
-        steps = device_steps[gpc.get_local_rank(ParallelMode.PIPELINE)]
-        last_stage = max(max(stage_alignment))
-        for s in range(len(steps)):
-            step_type, microbatch_id, stage_id, chunk_id = steps[s]
-            prev_stage = stage_id - 1
-            next_stage = stage_id + 1
-            prev_rank = None
-            next_rank = None
-            if prev_stage >= 0:
-                prev_rank = stage_to_device[prev_stage]
-            if next_stage <= last_stage:
-                next_rank = stage_to_device[next_stage]
-            next_step = None
-            next_step_chunk_id = None
-            next_step_stage_id = None
-            next_step_type = None
-            if s<len(steps)-1:
-                next_step = steps[s+1]
-                next_step_type = next_step[0]
-                next_step_stage_id = next_step[2]
-                next_step_chunk_id = next_step[3]
-    
-            prev_step = None
-            if s>0:
-                prev_step  = steps[s-1]
-
-            if step_type == Stage.FORWARD.value:
-                #forwawrd data input
-                send_forward_recv_forward_async_communicator = None
-                recv_forward_async_communicator = None
-                if stage_id == 0:
-                    self._input_objs[chunk_id].append(None)
-                else:
-                    if prev_step == Stage.FORWARD.value:
-                        if send_forward_recv_forward_async_communicator is not None:
-                            input_obj, _ = send_forward_recv_forward_async_communicator.wait_and_receive()
-                            if send_forward_recv_forward_async_communicator.need_receive:
-                                self._input_objs[chunk_id].append(input_obj)
-                    elif prev_step == Stage.BACKWARD.value:
-                        if recv_forward_async_communicator is not None:
-                            input_obj, _ = recv_forward_async_communicator.wait_and_receive()
-                            if recv_forward_async_communicator.need_receive:
-                                self._input_objs[chunk_id].append(input_obj)
-                    # if len(self._input_obj_caches[chunk_id]) > 0:
-                    #     self._input_objs[chunk_id].append(self._input_obj_caches[chunk_id].pop(0))
-                    else:
-                        if self._input_obj_shapes[chunk_id] is None:
-                            self._input_obj_shapes[chunk_id] = comm.recv_obj_meta(prev_rank)
-                        self._input_objs[chunk_id].append(
-                            comm.recv_forward(
-                                self._input_obj_shapes[chunk_id],
-                                prev_rank = prev_rank,
-                                dtype=self.dtype,
-                                scatter_gather_tensors=self.scatter_gather_tensors,
-                            )
-                        )
-
-                #process forward
-                output_obj = self._forward_step(engine, chunk_id)
-                if stage_id == last_stage:
-                    output_obj = None
-
-                #forward data output，needed to send next stage
-                if stage_id<last_stage:
-                    if isinstance(output_obj, torch.Tensor):
-                        self._output_obj_shapes[chunk_id] = output_obj.shape
-                    else:
-                        self._output_obj_shapes[chunk_id] = [out_tensor.shape for out_tensor in output_obj]
-
-                    if self._send_tensor_shape_flags[chunk_id]:
-                        comm.send_obj_meta(output_obj,next_rank)
-                        self._send_tensor_shape_flags[chunk_id] = False  # send only once for each chunk.
-                
-                #send forward & recv next_step's input
-                if next_step is not None:
-                    assert output_obj is None or output_obj.dtype == self.dtype
-                    if next_step_type == Stage.FORWARD.value:
-                        if next_step_stage_id > 0  and self._input_obj_shapes[next_step_chunk_id] is None:
-                            self._input_obj_shapes[next_step_chunk_id] = comm.recv_obj_meta(stage_to_device[next_step_stage_id-1])
-                        if next_step_stage_id == 0:
-                            input_shape = None
-                        else:
-                            input_shape = self._input_obj_shapes[next_step_stage_id]
-
-                        send_forward_recv_forward_async_communicator = comm.AsynCommunicator(
-                            object_send_next=output_obj,
-                            recv_prev_shape=input_shape,
-                            prev_rank=stage_to_device[next_step_stage_id-1],
-                            next_rank=next_rank,
-                            dtype=self.dtype,
-                            scatter_gather_tensors=self.scatter_gather_tensors,
-                        )
-                        send_forward_recv_forward_async_communicator.start()
-                    
-                    elif next_step_type == Stage.BACKWARD.value:
-                        if next_step_stage_id == last_stage:
-                            output_obj_shape = None
-                        else:
-                            output_obj_shape = self._output_obj_shapes[next_step_chunk_id]
-                            
-                        comm.send_forward(
-                            output_obj,
-                            next_rank=next_rank,
-                            scatter_gather_tensors=self.scatter_gather_tensors
-                        )
-                        recv_backward_async_communicator = comm.AsynCommunicator(
-                            recv_next_shape=output_obj_shape,
-                            next_rank=stage_to_device[next_step_stage_id+1],
-                            dtype=self.dtype,
-                            scatter_gather_tensors=self.scatter_gather_tensors,
-                        )
-                        recv_backward_async_communicator.start()
-
-            elif step_type == Stage.BACKWARD.value:
-                recv_backward_async_communicator = None
-                send_backward_recv_backward_async_communicator = None
-
-                if stage_id < last_stage:
-                    self._output_obj_grads[chunk_id].append(
-                        comm.recv_backward(
-                            self._output_obj_shapes[chunk_id],
-                            dtype=self.dtype,
-                            scatter_gather_tensors=self.scatter_gather_tensors,
-                        )
-                    )
-                elif stage_id == last_stage:
-                    self._output_obj_grads[chunk_id].append(None)
-
-                # 2. Check if the backward input is ready.
-                if prev_step == Stage.FORWARD.value:
-                    if recv_backward_async_communicator is not None:
-                        _, output_obj_grad = recv_backward_async_communicator.wait_and_receive()
-
-                        if recv_backward_async_communicator.need_receive:
-                            self._output_obj_grads[chunk_id].append(output_obj_grad)
-                elif prev_step == Stage.BACKWARD.value:
-                    if send_backward_recv_backward_async_communicator is not None:
-                        _, output_obj_grad = send_backward_recv_backward_async_communicator.wait_and_receive()
-
-                        if send_backward_recv_backward_async_communicator.need_receive:
-                            self._output_obj_grads[chunk_id].append(output_obj_grad)
-
-                input_obj_grad = self._backward_step(engine, chunk_id, microbatch_id)
-
-                if stage_id == last_stage:
-                    input_obj_grad = None
-                    
-                if next_step is not None:
-                    assert input_obj_grad is None or output_obj.dtype == self.dtype
-                    if next_step_type == Stage.BACKWARD.value:
-                        if next_step_stage_id == last_stage:
-                            output_obj_shape = None
-                        else:
-                            output_obj_shape = self._output_obj_shapes[next_step_chunk_id]
-
-                        send_backward_recv_backward_async_communicator = comm.AsynCommunicator(
-                            object_send_prev=input_obj_grad,
-                            recv_next_shape=output_obj_shape,
-                            prev_rank=prev_rank,
-                            next_rank=stage_to_device[next_step_stage_id-1],
-                            dtype=self.dtype,
-                            scatter_gather_tensors=self.scatter_gather_tensors,
-                        )
-                        send_backward_recv_backward_async_communicator.start()
-                    elif next_step_type == Stage.FORWARD.value:
-                        if next_step_stage_id == 0:
-                            input_obj_shape = None
-                        else:
-                            input_obj_shape = self._input_obj_shapes[next_step_chunk_id]
-                        comm.send_backward(
-                            output_obj,
-                            prev_rank=input_obj_grad,
-                            scatter_gather_tensors=self.scatter_gather_tensors
-                        )
-                        recv_forward_async_communicator = comm.AsynCommunicator(
-                            recv_prev_shape=input_obj_shape,
-                            prev_rank=stage_to_device[next_step_stage_id-1],
-                            dtype=self.dtype,
-                            scatter_gather_tensors=self.scatter_gather_tensors,
-                        )
-                        recv_forward_async_communicator.start()
-
-    #mth end
     def _run_warmup_loop(
         self,
         engine: Engine,
@@ -1733,7 +1367,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self._run_cooldown_loop(engine, num_microsteps, num_1f1b_micropairs=num_1f1b_micropairs)
 
     @llm_timeout(func_name="interleaved_forward_backward_step")
-    def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True):
+    def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True, batch_count=0):
         """Run interleaved 1F1B schedule (model split into model chunks), with
         communication between pipeline stages as needed.
 
@@ -1767,8 +1401,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         if forward_only:
             self._forward_only_step(engine)
         else:
-            #self._forward_backward_step(engine)
-            self._unifiedPP2(engine)
+            self._forward_backward_step(engine)
         if return_output_label and len(self._return_tensors) > 0:
             output, label = pack_return_tensors(self._return_tensors)
         else:

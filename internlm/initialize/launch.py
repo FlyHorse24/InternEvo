@@ -113,6 +113,7 @@ def args_sanity_check():
             "1F1B",
             "ZBH1",
             "ZBV",
+            "UNIFIED",
         ], f"unsupported pp mode {gpc.config.parallel.pipeline['mode']}"
         if gpc.config.parallel.pipeline["mode"] == "ZBV":
             gpc.v_shape = True

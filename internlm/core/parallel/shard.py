@@ -210,15 +210,12 @@ def partition_uniform(num_items: int, pipeline_parallel_size: int, num_chunks: i
     assert len(indexes) == len(set(indexes)), indexes  # should have no duplicates
     assert set(indexes) == set(list(range(num_items))), (indexes, num_items)  # should have the same indexes as expected
     return parts
-
-def partition_uniform_unifiedPP(num_items: int, pipeline_parallel_size: int, num_chunks: int):
-    
-    Stage_alignment=[[0, 4], [1, 5], [2, 6], [3, 7]]
-
+#FIX 
+def partition_uniform_unifiedPP(num_items: int, pipeline_parallel_size: int, num_chunks: int , stage_placement):
     parts = [[] for _ in range(pipeline_parallel_size)]
     chunk_size = num_items // num_chunks // pipeline_parallel_size
-    for d in range(Stage_alignment):
-        for stage in Stage_alignment[d]:
+    for d in range(len(stage_placement)):
+        for stage in stage_placement[d]:
             st = stage * chunk_size
             parts[d].append((st, st+chunk_size))
 
@@ -229,6 +226,52 @@ def partition_uniform_unifiedPP(num_items: int, pipeline_parallel_size: int, num
     assert len(indexes) == len(set(indexes)), indexes  # should have no duplicates
     assert set(indexes) == set(list(range(num_items))), (indexes, num_items)  # should have the same indexes as expected
     return parts
+
+def pipeline_parallel_sharding_wrapper_unifiedPP(
+    num_layers: int, num_chunks: int, stage_placement, model_builder: Callable, device: torch.device, **kwargs
+):
+    """
+    build generic model 1d
+
+    Args:
+        num_layers (int): The number of layer.
+        num_chunks (int): The number of partitions in pipeline parallel.
+        device (Optional[Union[str, torch.device]]): The device will be used. torch.device("cuda") by default.
+
+    """
+    pipeline_size = gpc.get_world_size(ParallelMode.PIPELINE)
+    pipeline_rank = gpc.get_local_rank(ParallelMode.PIPELINE)
+
+    all_parts = partition_uniform_unifiedPP(num_layers, pipeline_size, num_chunks,stage_placement)
+    parts = all_parts[pipeline_rank]
+
+    if gpc.is_rank_for_log():
+        logger.info("The layer sharding is %r.", all_parts)
+
+    models = []
+
+    for start, end in parts:
+        kwargs["num_layers"] = end - start
+        kwargs["first"] = start == 0
+        # If there is no content in the final layer, assign the last layer.
+        kwargs["last"] = end == num_layers and len(all_parts[-1]) != 0
+        kwargs["device"] = device
+        kwargs["start_layer_idx"] = start
+
+        chunk = model_builder(**kwargs).to(device)
+        setattr(chunk, "first_layer", start)
+        setattr(chunk, "last_layer", end)
+
+        models.append(chunk)
+
+    torch.distributed.barrier()
+
+    if len(models) == 1:
+        model = models[0]
+    else:
+        model = nn.ModuleList(models)
+
+    return model
 
 def pipeline_parallel_sharding_wrapper(
     num_layers: int, num_chunks: int, model_builder: Callable, device: torch.device, **kwargs

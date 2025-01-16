@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeline Visualization</title>
+    <style>
+        canvas {
+            border: 1px solid #ccc;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="timelineCanvas"></canvas>
+
+<script>
+
+function processData(data) {
+    // Find minimum start time
+    const minTime = Math.min(...data.map(block => block.start_time));
+    const mintimespan = Math.min(...data.map(block => block.timespan));
+
+    // Adjust times and convert to milliseconds
+    data.forEach(block => {
+        block.start_time = (block.start_time - minTime) / mintimespan/40;
+        block.timespan = block.timespan / mintimespan/40;
+    });
+
+    // Group by stage_id and operation type
+    const groupedData = {};
+    data.forEach(block => {
+        if (!groupedData[block.stage_id]) {
+            groupedData[block.stage_id] = {
+                compute: [],
+                communicate: []
+            };
+        }
+        if (block.operation.startsWith('compute')) {
+            groupedData[block.stage_id].compute.push(block);
+        } else if (block.operation.startsWith('communicate')) {
+            groupedData[block.stage_id].communicate.push(block);
+        }
+    });
+
+    // Sort blocks within each group
+    Object.values(groupedData).forEach(stage => {
+        stage.compute.sort((a, b) => a.start_time - b.start_time);
+        stage.communicate.sort((a, b) => a.start_time - b.start_time);
+    });
+
+    return groupedData;
+}
+
+function drawTimeline(data) {
+    const canvas = document.getElementById('timelineCanvas');
+    const ctx = canvas.getContext('2d');
+    const blockHeightY = 16;
+    const blockHeight = 30;         // 每个block的高度
+    const rowSpacing = 20;          // 行间距
+    const rowHeight = blockHeight * 2 + rowSpacing; // 每行的总高度
+    const xOffset = 100;            // 左边距
+    const yOffset = 30;             // 上边距
+
+    // Calculate canvas dimensions
+    const stages = Object.keys(data).sort((a, b) => Number(a) - Number(b));
+
+    // 计算最大时间，来确定画布的宽度
+    const maxTime = Math.max(...Object.values(data).flatMap(stage => 
+        [...stage.compute, ...stage.communicate].map(block => 
+            block.start_time + block.timespan
+        )
+    ));
+
+    // 根据最大时间设置画布宽度，宽度为时间的10倍，确保足够显示
+    canvas.width = 50000//maxTime+ xOffset; 
+    canvas.height = stages.length * rowHeight + yOffset * 2;
+
+    // 清除画布
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw timeline for each stage
+    stages.forEach((stageId, index) => {
+        const y = index * rowHeight + yOffset;
+
+        // 绘制stage标签
+        ctx.fillStyle = 'black';
+        ctx.font = '10px Arial';
+        ctx.fillText(`Stage ${stageId}`, 5, y + blockHeight);
+
+        // 绘制compute类型的block
+        data[stageId].compute.forEach(block => {
+            const x = block.start_time+ xOffset;
+            const width = block.timespan// 增加宽度最小值，避免block太小
+
+            // 根据step_type设置颜色
+            ctx.fillStyle = block.step_type === 'f' ? 'blue' : 
+                           block.step_type === 'b' ? 'yellow' : 
+                           block.step_type === 'w' ? 'green' : 'gray';
+
+            ctx.fillRect(x, y, width, blockHeight);
+            ctx.strokeRect(x, y, width, blockHeight);
+
+            // 添加文本
+            ctx.fillStyle = block.step_type === 'b' ? 'black' : 'white';
+            ctx.font = '10px Arial';
+            ctx.fillText(block.microbatch_id, x+(width/2), y + blockHeight - 10);
+        });
+
+//绘制communicate类型的block
+// 假设 data、stageId、ctx 已经正确定义
+// 假设 y 和 xOffset 已经正确定义
+        data[stageId].communicate.forEach(block => {
+            const x = block.start_time + xOffset;
+            const width = block.timespan; // 增加宽度最小值，避免 block 太小
+            let y2;
+            let color;
+            const communicate_type = block.operation.split(':').at(-1).split(";")[0];
+            switch (communicate_type) {
+                case 'send_forward':
+                    color = 'rgba(0, 0, 255, 0.5)';
+                    y2 = y + blockHeight;
+                    break;
+                case 'send_backward':
+                    color = 'rgba(255, 255, 0, 0.5)';
+                    y2 = y - blockHeightY ;
+                    break;
+                case 'recv_forward':
+                    color = 'rgba(0, 0, 255, 0.5)';
+                    y2 = y - blockHeightY ;
+                    break;
+                case 'recv_backward':
+                    color = 'rgba(255, 255, 0, 0.5)';
+                    y2 = y + blockHeight;
+                    break;
+                default:
+                    // 可以添加默认的颜色和位置设置
+                    color = 'gray';
+                    y2 = 0;
+            }
+
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y2, width, blockHeightY);
+            ctx.strokeRect(x, y2, width, blockHeightY);
+
+
+            //添加文本
+            ctx.fillStyle = 'black';
+            ctx.font = '10px Arial';
+            ctx.fillText(block.microbatch_id, x+(width/2), y2 + blockHeightY/2);
+        });
+    });
+}
+
+// 处理数据并绘制图形
+fetch('/jsonResult/iter_400_opeartion_list.json')
+    .then(response => response.text())
+    .then(text => {
+        // 将文本按JSON对象分割并解析
+        const regex = /{[^}]+}/g;
+        const data = Array.from(text.matchAll(regex)).map(match => JSON.parse(match[0]));
+        // 使用解析后的数据
+        const processedData = processData(data);
+        drawTimeline(processedData);
+    })
+    .catch(error => console.error('Error loading the file:', error));
+
+</script>
+</body>
+</html>

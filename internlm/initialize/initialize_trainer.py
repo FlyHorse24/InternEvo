@@ -22,6 +22,8 @@ from internlm.core.scheduler import (
     PipelineScheduler,
     ZeroBubblePipelineScheduler,
     ZeroBubblePipelineVShapeScheduler,
+    UnifiedSingleChunkPipelineScheduler,
+    UnifiedMultipleChunksPipelineScheduler,
 )
 from internlm.core.scheduler.pipeline_scheduler_1f1b import get_tensor_shape
 from internlm.core.trainer import Trainer
@@ -143,6 +145,31 @@ def initialize_trainer(
                 scheduler_hooks=scheduler_hooks,
                 optimizer=optimizer,
             )
+        elif pp_mode == "UNIFIED":
+            if gpc.config.model.num_chunks > 1:
+                scheduler = UnifiedMultipleChunksPipelineScheduler(
+                num_microbatches=gpc.config.NUM_MICRO_BATCHES,
+                num_chunks=gpc.config.model.num_chunks,
+                dtype=gpc.config.model["dtype"],
+                data_process_func=_data_preparation_func,
+                tensor_shape=tensor_shape,
+                scatter_gather_tensors=scatter_gather,
+                scheduler_hooks=scheduler_hooks,
+                optimizer=optimizer,
+                unified_scheduler=gpc.config.unified_scheduler,
+                stage_placement = gpc.config.stage_placement,
+                )
+            else:
+                scheduler = UnifiedSingleChunkPipelineScheduler(
+                    data_process_func=_data_preparation_func,
+                    num_microbatches=gpc.config.NUM_MICRO_BATCHES,
+                    dtype=gpc.config.model["dtype"],
+                    tensor_shape=tensor_shape,
+                    scatter_gather_tensors=scatter_gather,
+                    scheduler_hooks=scheduler_hooks,
+                    optimizer=optimizer,
+                    unified_scheduler=gpc.config.unified_scheduler,
+                )
         else:
             scheduler = PipelineScheduler(
                 data_process_func=_data_preparation_func,

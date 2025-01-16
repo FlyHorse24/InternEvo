@@ -75,6 +75,7 @@ class BaseScheduler(ABC):
         forward_only: bool,
         return_loss: bool = True,
         return_output_label: bool = True,
+        batch_count: int = 0,
     ):
         """The process function over a batch of dataset for training or evaluation.
 

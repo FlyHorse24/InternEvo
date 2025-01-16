@@ -16,7 +16,7 @@ from internlm.core.context import global_context as gpc
 from internlm.utils.common import get_current_device
 
 from .utils import gather_split_1d_tensor, split_tensor_into_1d_equal_chunks
-
+import time
 TensorShape = Union[torch.Size, List[int], Tuple[int]]
 internlm_accelerator = get_accelerator()
 
@@ -206,6 +206,7 @@ def _communicate_async(
     next_rank: int = None,
     dtype: torch.dtype = None,
     scatter_gather_tensors: bool = False,
+    #tag: int = 0,
 ):
     """
     Adapted from megatron.p2p_communication.
@@ -588,7 +589,7 @@ def fused_send_recv_tensor(
     return tensor_recv_prev, tensor_recv_next
 
 
-class AsynCommunicator:
+class AsynCommunicator_orgain:
     """AsynCommunicator for managing async communication."""
 
     def __init__(
@@ -628,3 +629,80 @@ class AsynCommunicator:
         self._coroutine.close()
 
         return received
+
+
+class AsynCommunicator:
+    """AsynCommunicator for managing async communication."""
+
+    def __init__(
+        self,
+        object_send_next: Union[torch.Tensor, List[torch.Tensor]] = None,
+        object_send_prev: Union[torch.Tensor, List[torch.Tensor]] = None,
+        recv_prev_shape: Union[torch.Size, List[torch.Size]] = None,
+        recv_next_shape: Union[torch.Size, List[torch.Size]] = None,
+        prev_rank: int = None,
+        next_rank: int = None,
+        dtype: torch.dtype = None,
+        scatter_gather_tensors: bool = False,
+        stage_id: int = None,
+        microbatch_id: int = None,
+        step_type: str = None,
+        local_rank = None,
+        chunk_id = None,
+        
+    ) -> None:
+        self.stage_id = stage_id
+        self.step_type = step_type
+        self.microbatch_id = microbatch_id
+        self.chunk_id = chunk_id
+        self.local_rank = local_rank
+        #tag = 0
+        self.operation = "communicate:"
+        if object_send_next is not None:
+            self.operation += "send_forward;"
+            #tag = stage_id*10000+microbatch_id
+        if object_send_prev is not None:
+            self.operation += "send_backward;"
+            #tag = stage_id*10000+microbatch_id
+        if recv_prev_shape is not None:
+            self.operation += "recv_forward;"
+            #tag = prev_stage_id*10000+microbatch_id
+        if recv_next_shape is not None:
+            self.operation += "recv_backward;"
+            #tag = next_stage_id*10000+microbatch_id
+        
+
+        self._need_receive = recv_prev_shape is not None or recv_next_shape is not None
+        self._coroutine = _communicate_async(
+            object_send_prev=object_send_prev,
+            object_send_next=object_send_next,
+            recv_prev=recv_prev_shape is not None,
+            recv_next=recv_next_shape is not None,
+            recv_prev_shape=recv_prev_shape,
+            recv_next_shape=recv_next_shape,
+            prev_rank=prev_rank,
+            next_rank=next_rank,
+            dtype=dtype,
+            scatter_gather_tensors=scatter_gather_tensors,
+            #tag=tag,
+        )
+        
+
+    @property
+    def need_receive(self) -> bool:
+        return self._need_receive
+
+    def start(self) -> None:
+        start_time = time.perf_counter()
+        next(self._coroutine)
+        end_time = time.perf_counter()
+        commOperation_info = {"local_rank":self.local_rank, "stage_id":self.stage_id, "chunk_id":self.chunk_id, "microbatch_id":self.microbatch_id, "step_type":self.step_type, "operation":self.operation, "start_time":start_time,  "timespan":(end_time - start_time)}
+        return commOperation_info
+
+    def wait_and_receive(self) -> Union[torch.Tensor, List[torch.Tensor]]:
+        start_time = time.perf_counter()
+        received = next(self._coroutine)
+        self._coroutine.close()
+        end_time = time.perf_counter()
+        commOperation_info = {"local_rank":self.local_rank, "stage_id":self.stage_id, "chunk_id":self.chunk_id, "microbatch_id":self.microbatch_id, "step_type":self.step_type, "operation":self.operation, "start_time":start_time,  "timespan":(end_time - start_time)}
+        return commOperation_info, received

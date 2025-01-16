@@ -1,0 +1,73 @@
+// rank.proto
+syntax = "proto3";
+
+package rank;
+
+import "google/protobuf/timestamp.proto"; // 引入 Timestamp 类型
+
+// 定义服务
+service RankService {
+  rpc CreateRank (CreateRankRequest) returns (RankResponse);
+  rpc GetRank (GetRankRequest) returns (RankResponse);
+  rpc UpdateRank (UpdateRankRequest) returns (RankResponse);
+  rpc UpdateSendForwardTimes (UpdateSendForwardTimesRequest) returns (RankResponse); // 新增方法
+  rpc UpdateSendBackwardTimes (UpdateSendBackwardTimesRequest) returns (RankResponse); // 新增方法
+  rpc DeleteRank (DeleteRankRequest) returns (DeleteRankResponse);
+  rpc GetRankByLocalRank (GetRankByLocalRankRequest) returns (RankResponse); // 新增方法
+}
+
+// 定义消息
+message Rank {
+  string id = 1;
+  int32 local_rank = 2;
+  int32 sendforwardtimes = 3;
+  int32 sendbackwardtimes = 4;
+  google.protobuf.Timestamp timestamp = 5; // 操作时间戳
+  google.protobuf.Timestamp last_getrank_timestamp = 6; // 最新的 GetRank 请求时间戳
+  int32 index = 7; // 新增：执行的步数
+}
+
+message CreateRankRequest {
+  int32 local_rank = 1;
+  int32 sendforwardtimes = 2;
+  int32 sendbackwardtimes = 3;
+  int32 index = 4; // 新增：初始化 index
+}
+
+message GetRankRequest {
+  string id = 1;
+}
+
+message UpdateRankRequest {
+  string id = 1;
+  int32 local_rank = 2;
+  int32 sendforwardtimes = 3;
+  int32 sendbackwardtimes = 4;
+  int32 index = 5; // 新增：更新 index
+}
+
+message UpdateSendForwardTimesRequest { // 新增消息
+  string id = 1;
+  int32 sendforwardtimes = 2;
+}
+
+message UpdateSendBackwardTimesRequest { // 新增消息
+  string id = 1;
+  int32 sendbackwardtimes = 2;
+}
+
+message DeleteRankRequest {
+  string id = 1;
+}
+
+message GetRankByLocalRankRequest {
+  int32 local_rank = 1;
+}
+
+message RankResponse {
+  Rank rank = 1;
+}
+
+message DeleteRankResponse {
+  bool success = 1;
+}

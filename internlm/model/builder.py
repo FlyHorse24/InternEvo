@@ -4,14 +4,13 @@ from torch import nn
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.core.parallel.shard import pipeline_parallel_sharding_wrapper
+from internlm.core.parallel.shard import pipeline_parallel_sharding_wrapper, pipeline_parallel_sharding_wrapper_unifiedPP
 from internlm.model.base_model import BaseModel
 from internlm.model.registry import model_initializer
 from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 
 logger = get_logger(__file__)
-
 
 def create_model(model_type) -> Union[nn.Module, List[nn.Module]]:
 
@@ -38,7 +37,10 @@ def create_model(model_type) -> Union[nn.Module, List[nn.Module]]:
         setattr(model, "first_layer", 0)
         setattr(model, "last_layer", num_layers)
     else:
-        model = pipeline_parallel_sharding_wrapper(num_layers, num_chunks, model_buidler, **kwargs)
+        if getattr(gpc.config.parallel["pipeline"], "mode", "1F1B").upper() == "UNIFIED" and num_chunks>1:
+            model = pipeline_parallel_sharding_wrapper_unifiedPP(num_layers, num_chunks, gpc.config.stage_placement, model_buidler, **kwargs)
+        else:
+            model = pipeline_parallel_sharding_wrapper(num_layers, num_chunks, model_buidler, **kwargs)
 
     if not isinstance(model, BaseModel) and gpc.is_rank_for_log():
         logger.warning(f"To load/save huggingface ckpt, built-in model should inherited from {BaseModel.__name__}")
