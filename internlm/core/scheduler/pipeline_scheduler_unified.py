@@ -36,94 +36,10 @@ import rank_pb2_grpc
 
 logger = get_logger(__file__)
 
-def create_rank(stub, stage_id, chunk_id, local_rank, global_rank):
-    create_response = stub.CreateRank(rank_pb2.CreateRankRequest(
-        stage_id=stage_id,
-        chunk_id=chunk_id,
-        local_rank=local_rank,
-        global_rank=global_rank,
-        sendforwardtimes=0,
-        sendbackwardtimes=0,
-        latest_getrank_info={'sendforwardtimes': 0, 'sendbackwardtimes': 0}  # 初始化 latest_getrank_info
-    ))
-    #print(f"Created Rank: {create_response.rank}")
-    return create_response.rank.id
-
-def update_rank(stub, rank_id, stage_id, chunk_id, local_rank, global_rank, sendforwardtimes, sendbackwardtimes, latest_getrank_info):
-    update_response = stub.UpdateRank(rank_pb2.UpdateRankRequest(
-        id=rank_id,
-        stage_id=stage_id,
-        chunk_id=chunk_id,
-        local_rank=local_rank,
-        global_rank=global_rank,
-        sendforwardtimes=sendforwardtimes,
-        sendbackwardtimes=sendbackwardtimes,
-        latest_getrank_info=latest_getrank_info
-        )
-    )
-
-def update_rankSendFT(stub, rank_id, sendforwardtimes):
-    update_response = stub.UpdateSendForwardTimes(rank_pb2.UpdateSendForwardTimesRequest(
-            id=rank_id,
-            sendforwardtimes=sendforwardtimes,
-        ))
-    return update_response.rank
-    # print(f"sendforwardtimes: {sendforwardtimes}")
-    # print(f"Updated Rank: {update_response.rank}")
-
-def update_rankSendBT(stub, rank_id, sendbackwardtimes):
-    update_response = stub.UpdateSendBackwardTimes(rank_pb2.UpdateSendBackwardTimesRequest(
-            id=rank_id,
-            sendbackwardtimes=sendbackwardtimes,
-        ))
-    # print(f"sendbackwardtimes: {sendbackwardtimes}")
-    # print(f"Updated Rank: {update_response.rank}")
-
-def delete_rank(stub, rank_id):
-    delete_response = stub.DeleteRank(rank_pb2.DeleteRankRequest(id=rank_id))
-    #print(f"Delete Rank Success: {delete_response.success}")
-
-def get_by_stage_id(stub, stage_id):
-    get_by_stage_id_response = stub.GetRankByStageId(rank_pb2.GetRankByStageIdRequest(stage_id=stage_id))
-    return get_by_stage_id_response.rank
-
-def get_sendforwardtimes_by_stage_id(stub, stage_id):
-    sendforward_response = stub.GetSendForwardTimesByStageId(rank_pb2.GetSendForwardTimesByStageIdRequest(stage_id=stage_id))
-    return sendforward_response.sendforwardtimes
-
-def get_sendbackwardtimes_by_stage_id(stub, stage_id):
-    sendbackward_response = stub.GetSendBackwardTimesByStageId(rank_pb2.GetSendBackwardTimesByStageIdRequest(stage_id=stage_id))
-    return sendbackward_response.sendbackwardtimes
-
 def write_json(jsonpath, content):
     with open(jsonpath, 'a',encoding='utf-8') as f:
         json.dump(content, f, indent=4)
 
-def get_prevRankBeforeIndexFtimes(index, rank_list):
-    Ftimes = 0
-    for s in range(index-1, -1, -1):
-        step_type, microbatch_id, _= rank_list[s]
-        if step_type == Stage.FORWARD.value:
-            if microbatch_id>Ftimes:
-                Ftimes = microbatch_id
-            else:
-                break
-        else:
-            continue
-    return Ftimes
-
-def get_nextRankbeforeIndexInfoBtimes(index, rank_list):
-    Btimes = 0
-    for s in range(index-1, -1, -1):
-        step_type, microbatch_id, _ = rank_list[s]
-        if step_type == Stage.BACKWARD.value:
-            if microbatch_id>Btimes:
-                Btimes = microbatch_id
-            else: 
-                break
-        else:
-            continue
-    return Btimes
 def _get_chunk_by_stage(stage_id: int,stage_alignment:list) -> int:
     for device_stage in stage_alignment:
         for chunk_id in range(len(device_stage)):
@@ -134,12 +50,7 @@ def _get_deviceid_by_alignment(stage_id: int, stage_alignment:list) -> int:
         for stage_in_device in stage_alignment[device_id]:
             if stage_in_device == stage_id:
                 return device_id
-def _get_chunk_by_stage(stage_id: int, stage_placement: List[List[int]]) -> int:
-    for device_stage in stage_placement:
-        for chunk_id in range(device_stage):
-            if device_stage[chunk_id] == stage_id:
-                return chunk_id
-
+ 
 def build_stage_to_device_map(stage_placement):
     stage_to_device = {}
     for device_id in range(len(stage_placement)):
