@@ -1045,35 +1045,7 @@ class UnifiedMultipleChunksPipelineScheduler(InterleavedPipelineScheduler):
                     output_obj_grad = None
                 self._output_obj_grads[chunk_id].append(output_obj_grad)
 
-                recv_forward_start_time_list[chunk_id] , recv_backward_start_time_list[chunk_id], \
-                    recv_forward_queue_list[chunk_id] ,recv_backward_queue_list[chunk_id]=self.recvAll(
-                            last_stage=last_stage,
-                            step_type=step_type, 
-                            microbatch_id=microbatch_id, #这个参数是指本操作的microbatch_id
-                            stage_id=stage_id,
-                            local_rank=local_rank,
-                            chunk_id=chunk_id,
-                            jsonpath=jsonpath,
-                            stub=stub,
-                            prev_stage=prev_stage,
-                            prev_global_rank=prev_global_rank,
-                            recv_forward_start_time=recv_forward_start_time_list[chunk_id], 
-                            forward_recv_shapes=forward_recv_shapes, 
-                            recv_forward_queue=recv_forward_queue_list[chunk_id],
-                            next_stage=next_stage,
-                            next_global_rank=next_global_rank, 
-                            recv_backward_start_time=recv_backward_start_time_list[chunk_id], 
-                            backward_recv_shapes=backward_recv_shapes, 
-                            recv_backward_queue=recv_backward_queue_list[chunk_id])
-
-                if stage_id>0 and prev_global_rank != global_rank:
-                    send_backward_start_time_list[chunk_id] += 1
-                    update_rankSendBT(
-                        stub=stub,
-                        rank_id=this_rank_id,
-                        sendbackwardtimes=send_backward_start_time_list[chunk_id]
-                    )
-                
+               
                 start_time = time.perf_counter()
                 input_obj_grad = self._backward_step(engine, chunk_id, microbatch_id)
                 end_time =time.perf_counter()
@@ -1081,28 +1053,6 @@ class UnifiedMultipleChunksPipelineScheduler(InterleavedPipelineScheduler):
                 write_json(jsonpath,json_content)
                 #debugprint(f"step:{step_type}, microbatch_id:{microbatch_id}, stage_id:{stage_id}, _backward_step")
                 #do_compute()
-                
-                recv_forward_start_time_list[chunk_id] , recv_backward_start_time_list[chunk_id], \
-                    recv_forward_queue_list[chunk_id] ,recv_backward_queue_list[chunk_id]=self.recvAll(
-                            last_stage=last_stage,
-                            step_type=step_type, 
-                            microbatch_id=microbatch_id, #这个参数是指本操作的microbatch_id
-                            stage_id=stage_id,
-                            local_rank=local_rank,
-                            chunk_id=chunk_id,
-                            jsonpath=jsonpath,
-                            stub=stub,
-                            prev_stage=prev_stage,
-                            prev_global_rank=prev_global_rank,
-                            recv_forward_start_time=recv_forward_start_time_list[chunk_id], 
-                            forward_recv_shapes=forward_recv_shapes, 
-                            recv_forward_queue=recv_forward_queue_list[chunk_id],
-                            next_stage=next_stage,
-                            next_global_rank=next_global_rank, 
-                            recv_backward_start_time=recv_backward_start_time_list[chunk_id], 
-                            backward_recv_shapes=backward_recv_shapes, 
-                            recv_backward_queue=recv_backward_queue_list[chunk_id])
-                
                 if stage_id>0:
                     if prev_global_rank == global_rank:
                         backward_from_same_rank[chunk_id].put(input_obj_grad)
