@@ -1,0 +1,747 @@
+{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258913.795656085,
+    "timespan": 2.6245920434594154
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 42258916.43080217,
+    "timespan": 0.012713223695755005
+}{
+    "local_rank": 1,
+    "stage_id": 1,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258913.97590533,
+    "timespan": 2.469319425523281
+}{
+    "local_rank": 1,
+    "stage_id": 1,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258916.44653448,
+    "timespan": 0.0001521855592727661
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258916.445876904,
+    "timespan": 0.03889252990484238
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 42258916.48653354,
+    "timespan": 0.0003797486424446106
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258916.44852035,
+    "timespan": 0.038477376103401184
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258916.489428,
+    "timespan": 0.033677585422992706
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 42258916.52490252,
+    "timespan": 0.00038220733404159546
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 3,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258916.52724469,
+    "timespan": 0.03329888731241226
+}{
+    "local_rank": 1,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258916.49008222,
+    "timespan": 0.39768368750810623
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258916.88997839,
+    "timespan": 0.0005309358239173889
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 3,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 42258916.56239824,
+    "timespan": 0.3282207325100899
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 3,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258916.891644485,
+    "timespan": 0.0003559812903404236
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 42258916.894308604,
+    "timespan": 0.010573223233222961
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258916.906053856,
+    "timespan": 7.897615432739258e-05
+}{
+    "local_rank": 2,
+    "stage_id": 2,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258913.93093612,
+    "timespan": 2.97622612118721
+}{
+    "local_rank": 2,
+    "stage_id": 2,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258916.908506915,
+    "timespan": 0.00025156140327453613
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 4,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258916.89442937,
+    "timespan": 0.03382756561040878
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 4,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 42258916.93031621,
+    "timespan": 0.00034233182668685913
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 4,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258916.90778466,
+    "timespan": 0.022998884320259094
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 5,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258916.93271399,
+    "timespan": 0.034108564257621765
+}{
+    "local_rank": 1,
+    "chunk_id": 0,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258916.93380307,
+    "timespan": 0.03466726094484329
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 5,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 42258916.96877157,
+    "timespan": 0.0003530532121658325
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 5,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258916.97031444,
+    "timespan": 0.00044208019971847534
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 42258916.97223545,
+    "timespan": 0.00030987709760665894
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258916.97365199,
+    "timespan": 7.048994302749634e-05
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 6,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258916.971743934,
+    "timespan": 0.032355599105358124
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 6,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 42258917.00590768,
+    "timespan": 0.0003509595990180969
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 6,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258916.97519403,
+    "timespan": 0.031195692718029022
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 7,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258917.00846848,
+    "timespan": 0.038160406053066254
+}{
+    "local_rank": 1,
+    "chunk_id": 0,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258917.00923232,
+    "timespan": 0.03801383823156357
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 7,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 42258917.04887781,
+    "timespan": 0.0003639981150627136
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 7,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258917.04987143,
+    "timespan": 0.00045746564865112305
+}{
+    "local_rank": 2,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258916.91145172,
+    "timespan": 0.40423547476530075
+}{
+    "local_rank": null,
+    "stage_id": 2,
+    "chunk_id": null,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258917.317852855,
+    "timespan": 0.0005393773317337036
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 42258917.052053794,
+    "timespan": 0.2664428725838661
+}{
+    "local_rank": null,
+    "stage_id": 2,
+    "chunk_id": null,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258917.31962951,
+    "timespan": 0.00037120282649993896
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 3,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258917.320613466,
+    "timespan": 0.000141143798828125
+}{
+    "local_rank": 1,
+    "chunk_id": 0,
+    "microbatch_id": 3,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258917.324105665,
+    "timespan": 0.03151857852935791
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 3,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 42258917.35810279,
+    "timespan": 0.0003977566957473755
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 4,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 42258917.35973652,
+    "timespan": 8.781254291534424e-05
+}{
+    "local_rank": 1,
+    "chunk_id": 0,
+    "microbatch_id": 4,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 42258917.36232997,
+    "timespan": 0.03173414617776871
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720719.636686504,
+    "timespan": 0.4845193400979042
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 12720720.131000128,
+    "timespan": 0.012648304924368858
+}{
+    "local_rank": 1,
+    "stage_id": 1,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720719.758068182,
+    "timespan": 0.3857331108301878
+}{
+    "local_rank": 1,
+    "stage_id": 1,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.145643232,
+    "timespan": 0.0001363307237625122
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720720.146739824,
+    "timespan": 0.032225875183939934
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 12720720.18077091,
+    "timespan": 0.0003078337758779526
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.147564605,
+    "timespan": 0.03360042721033096
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720720.183284191,
+    "timespan": 0.029743224382400513
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 12720720.21476098,
+    "timespan": 0.00031079165637493134
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 3,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720720.21704591,
+    "timespan": 0.030930574983358383
+}{
+    "local_rank": 1,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720720.184129864,
+    "timespan": 0.394329322502017
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.580909733,
+    "timespan": 0.00048774294555187225
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 3,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 12720720.249788787,
+    "timespan": 0.33171209692955017
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 3,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.58267823,
+    "timespan": 0.0003132615238428116
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 12720720.585597964,
+    "timespan": 0.00997883640229702
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.596844422,
+    "timespan": 6.482750177383423e-05
+}{
+    "local_rank": 2,
+    "stage_id": 2,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720719.539763851,
+    "timespan": 1.0577375777065754
+}{
+    "local_rank": 2,
+    "stage_id": 2,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.599096028,
+    "timespan": 0.00015249662101268768
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 4,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720720.585047528,
+    "timespan": 0.033044395968317986
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 4,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 12720720.62006745,
+    "timespan": 0.0003260727971792221
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 4,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.598491536,
+    "timespan": 0.021987851709127426
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 5,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720720.622440515,
+    "timespan": 0.03214951232075691
+}{
+    "local_rank": 1,
+    "chunk_id": 0,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720720.623764588,
+    "timespan": 0.03093786910176277
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 5,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 12720720.656372987,
+    "timespan": 0.0003286972641944885
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 5,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.657362292,
+    "timespan": 0.00038808397948741913
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 12720720.659252215,
+    "timespan": 0.000294562429189682
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.660862444,
+    "timespan": 5.990825593471527e-05
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 6,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720720.658721425,
+    "timespan": 0.03136665001511574
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 6,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 12720720.692043096,
+    "timespan": 0.00031221285462379456
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 6,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.662632303,
+    "timespan": 0.02980625443160534
+}{
+    "local_rank": 0,
+    "chunk_id": 0,
+    "microbatch_id": 7,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720720.694385212,
+    "timespan": 0.03302836790680885
+}{
+    "local_rank": 1,
+    "chunk_id": 0,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720720.695373388,
+    "timespan": 0.03341235965490341
+}{
+    "local_rank": null,
+    "stage_id": 0,
+    "chunk_id": null,
+    "microbatch_id": 7,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 12720720.729398852,
+    "timespan": 0.0003142859786748886
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 7,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.730691576,
+    "timespan": 0.00040468573570251465
+}{
+    "local_rank": 2,
+    "chunk_id": 0,
+    "microbatch_id": 0,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720720.602113768,
+    "timespan": 0.3903283551335335
+}{
+    "local_rank": null,
+    "stage_id": 2,
+    "chunk_id": null,
+    "microbatch_id": 1,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.994701987,
+    "timespan": 0.000536009669303894
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 12720720.732622469,
+    "timespan": 0.2626682035624981
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 3,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.996383091,
+    "timespan": 9.837374091148376e-05
+}{
+    "local_rank": null,
+    "stage_id": 2,
+    "chunk_id": null,
+    "microbatch_id": 2,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720720.996367704,
+    "timespan": 0.0003230273723602295
+}{
+    "local_rank": 1,
+    "chunk_id": 0,
+    "microbatch_id": 3,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720720.999387909,
+    "timespan": 0.03135217726230621
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 3,
+    "step_type": "f",
+    "operation": "communicate:send_forward;",
+    "start_time": 12720721.0329795,
+    "timespan": 0.0002970360219478607
+}{
+    "local_rank": null,
+    "stage_id": 1,
+    "chunk_id": null,
+    "microbatch_id": 4,
+    "step_type": "f",
+    "operation": "communicate:recv_forward;",
+    "start_time": 12720721.034430968,
+    "timespan": 5.548819899559021e-05
+}{
+    "local_rank": 1,
+    "chunk_id": 0,
+    "microbatch_id": 4,
+    "step_type": "f",
+    "operation": "compute",
+    "start_time": 12720721.03684634,
+    "timespan": 0.030532192438840866
+}

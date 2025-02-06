@@ -3,8 +3,6 @@ syntax = "proto3";
 
 package rank;
 
-import "google/protobuf/timestamp.proto"; // 引入 Timestamp 类型
-
 // 定义服务
 service RankService {
   rpc CreateRank (CreateRankRequest) returns (RankResponse);
@@ -13,25 +11,31 @@ service RankService {
   rpc UpdateSendForwardTimes (UpdateSendForwardTimesRequest) returns (RankResponse); // 新增方法
   rpc UpdateSendBackwardTimes (UpdateSendBackwardTimesRequest) returns (RankResponse); // 新增方法
   rpc DeleteRank (DeleteRankRequest) returns (DeleteRankResponse);
-  rpc GetRankByLocalRank (GetRankByLocalRankRequest) returns (RankResponse); // 新增方法
+  rpc GetRankByStageId (GetRankByStageIdRequest) returns (RankResponse); // 新增方法
+  rpc GetSendForwardTimesByStageId (GetSendForwardTimesByStageIdRequest) returns (GetSendForwardTimesResponse); // 新增方法
+  rpc GetSendBackwardTimesByStageId (GetSendBackwardTimesByStageIdRequest) returns (GetSendBackwardTimesResponse); // 新增方法
 }
 
 // 定义消息
 message Rank {
   string id = 1;
-  int32 local_rank = 2;
-  int32 sendforwardtimes = 3;
-  int32 sendbackwardtimes = 4;
-  google.protobuf.Timestamp timestamp = 5; // 操作时间戳
-  google.protobuf.Timestamp last_getrank_timestamp = 6; // 最新的 GetRank 请求时间戳
-  int32 index = 7; // 新增：执行的步数
+  int32 stage_id = 2;
+  int32 chunk_id = 3;
+  int32 local_rank = 4;
+  int32 global_rank = 5;
+  int32 sendforwardtimes = 6;
+  int32 sendbackwardtimes = 7;
+  map<string, int32> latest_getrank_info = 8;  // 使用 map 表示字典
 }
 
 message CreateRankRequest {
-  int32 local_rank = 1;
-  int32 sendforwardtimes = 2;
-  int32 sendbackwardtimes = 3;
-  int32 index = 4; // 新增：初始化 index
+  int32 stage_id = 1;
+  int32 chunk_id = 2;
+  int32 local_rank = 3;
+  int32 global_rank = 4;
+  int32 sendforwardtimes = 5;
+  int32 sendbackwardtimes = 6;
+  map<string, int32> latest_getrank_info = 7;  // 使用 map 表示字典
 }
 
 message GetRankRequest {
@@ -40,10 +44,13 @@ message GetRankRequest {
 
 message UpdateRankRequest {
   string id = 1;
-  int32 local_rank = 2;
-  int32 sendforwardtimes = 3;
-  int32 sendbackwardtimes = 4;
-  int32 index = 5; // 新增：更新 index
+  int32 stage_id = 2;
+  int32 chunk_id = 3;
+  int32 local_rank = 4;
+  int32 global_rank = 5;
+  int32 sendforwardtimes = 6;
+  int32 sendbackwardtimes = 7;
+  map<string, int32> latest_getrank_info = 8;
 }
 
 message UpdateSendForwardTimesRequest { // 新增消息
@@ -60,8 +67,24 @@ message DeleteRankRequest {
   string id = 1;
 }
 
-message GetRankByLocalRankRequest {
-  int32 local_rank = 1;
+message GetRankByStageIdRequest {
+  int32 stage_id = 1;
+}
+
+message GetSendForwardTimesByStageIdRequest { // 新增消息
+  int32 stage_id = 1;
+}
+
+message GetSendBackwardTimesByStageIdRequest { // 新增消息
+  int32 stage_id = 1;
+}
+
+message GetSendForwardTimesResponse { // 新增消息
+  int32 sendforwardtimes = 1;
+}
+
+message GetSendBackwardTimesResponse { // 新增消息
+  int32 sendbackwardtimes = 1;
 }
 
 message RankResponse {

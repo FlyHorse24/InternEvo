@@ -20,26 +20,28 @@ function processData(data) {
     // Find minimum start time
     const minTime = Math.min(...data.map(block => block.start_time));
     const mintimespan = Math.min(...data.map(block => block.timespan));
+    //
+    const maxChunkId = Math.max(...data.map(block => block.chunk_id));
 
     // Adjust times and convert to milliseconds
     data.forEach(block => {
-        block.start_time = (block.start_time - minTime) / mintimespan/40;
-        block.timespan = block.timespan / mintimespan/40;
+        block.start_time = (block.start_time - minTime) / mintimespan/100;
+        block.timespan = block.timespan / mintimespan/100;
     });
 
-    // Group by stage_id and operation type
+    // Group by local_rank and operation type
     const groupedData = {};
     data.forEach(block => {
-        if (!groupedData[block.stage_id]) {
-            groupedData[block.stage_id] = {
+        if (!groupedData[block.local_rank]) {
+            groupedData[block.local_rank] = {
                 compute: [],
                 communicate: []
             };
         }
         if (block.operation.startsWith('compute')) {
-            groupedData[block.stage_id].compute.push(block);
+            groupedData[block.local_rank].compute.push(block);
         } else if (block.operation.startsWith('communicate')) {
-            groupedData[block.stage_id].communicate.push(block);
+            groupedData[block.local_rank].communicate.push(block);
         }
     });
 
@@ -81,23 +83,36 @@ function drawTimeline(data) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Draw timeline for each stage
-    stages.forEach((stageId, index) => {
+    stages.forEach((localRank, index) => {
         const y = index * rowHeight + yOffset;
 
         // 绘制stage标签
         ctx.fillStyle = 'black';
         ctx.font = '10px Arial';
-        ctx.fillText(`Stage ${stageId}`, 5, y + blockHeight);
+        ctx.fillText(`rank ${localRank}`, 5, y + blockHeight);
 
         // 绘制compute类型的block
-        data[stageId].compute.forEach(block => {
+        data[localRank].compute.forEach(block => {
             const x = block.start_time+ xOffset;
-            const width = block.timespan// 增加宽度最小值，避免block太小
-
+            const width = block.timespan;// 增加宽度最小值，避免block太小
+            //const alpha = 1-block.chunk_id/maxChunkId;
             // 根据step_type设置颜色
-            ctx.fillStyle = block.step_type === 'f' ? 'blue' : 
-                           block.step_type === 'b' ? 'yellow' : 
-                           block.step_type === 'w' ? 'green' : 'gray';
+            switch (block.step_type) {
+                case 'f':
+                    color = 'rgba(0, 0, 255, 1)';
+                    break;
+                case 'b':
+                    color = 'rgba(255, 255, 0, 1)';
+                    break;
+                case 'w':
+                    color = 'rgba(0, 255, 0, 1)';
+                    break;
+                default:
+                    // 可以添加默认的颜色和位置设置
+                    color = 'gray';
+
+            }
+            ctx.fillStyle = color;
 
             ctx.fillRect(x, y, width, blockHeight);
             ctx.strokeRect(x, y, width, blockHeight);
@@ -109,52 +124,53 @@ function drawTimeline(data) {
         });
 
 //绘制communicate类型的block
-// 假设 data、stageId、ctx 已经正确定义
+// 假设 data、localRank、ctx 已经正确定义
 // 假设 y 和 xOffset 已经正确定义
-        data[stageId].communicate.forEach(block => {
-            const x = block.start_time + xOffset;
-            const width = block.timespan; // 增加宽度最小值，避免 block 太小
-            let y2;
-            let color;
-            const communicate_type = block.operation.split(':').at(-1).split(";")[0];
-            switch (communicate_type) {
-                case 'send_forward':
-                    color = 'rgba(0, 0, 255, 0.5)';
-                    y2 = y + blockHeight;
-                    break;
-                case 'send_backward':
-                    color = 'rgba(255, 255, 0, 0.5)';
-                    y2 = y - blockHeightY ;
-                    break;
-                case 'recv_forward':
-                    color = 'rgba(0, 0, 255, 0.5)';
-                    y2 = y - blockHeightY ;
-                    break;
-                case 'recv_backward':
-                    color = 'rgba(255, 255, 0, 0.5)';
-                    y2 = y + blockHeight;
-                    break;
-                default:
-                    // 可以添加默认的颜色和位置设置
-                    color = 'gray';
-                    y2 = 0;
-            }
+        // data[localRank].communicate.forEach(block => {
+        //     const x = block.start_time + xOffset;
+        //     const width = block.timespan; // 增加宽度最小值，避免 block 太小
+        //     let y2;
+        //     let color;
+        //     //const alpha = 1- block.chunk_id/maxChunkId;
+        //     const communicate_type = block.operation.split(':').at(-1).split(";")[0];
+        //     switch (communicate_type) {
+        //         case 'send_forward':
+        //             color = 'rgba(0, 0, 255, 0.5)';
+        //             y2 = y + blockHeight;
+        //             break;
+        //         case 'send_backward':
+        //             color = 'rgba(255, 255, 0, 0.5)';
+        //             y2 = y - blockHeightY ;
+        //             break;
+        //         case 'recv_forward':
+        //             color = 'rgba(0, 0, 255, 0.5)';
+        //             y2 = y - blockHeightY ;
+        //             break;
+        //         case 'recv_backward':
+        //             color = 'rgba(255, 255, 0, 0.5)';
+        //             y2 = y + blockHeight;
+        //             break;
+        //         default:
+        //             // 可以添加默认的颜色和位置设置
+        //             color = 'gray';
+        //             y2 = 0;
+        //     }
 
-            ctx.fillStyle = color;
-            ctx.fillRect(x, y2, width, blockHeightY);
-            ctx.strokeRect(x, y2, width, blockHeightY);
+        //     ctx.fillStyle = color;
+        //     ctx.fillRect(x, y2, width, blockHeightY);
+        //     ctx.strokeRect(x, y2, width, blockHeightY);
 
 
-            //添加文本
-            ctx.fillStyle = 'black';
-            ctx.font = '10px Arial';
-            ctx.fillText(block.microbatch_id, x+(width/2), y2 + blockHeightY/2);
-        });
+        //     //添加文本
+        //     ctx.fillStyle = 'black';
+        //     ctx.font = '10px Arial';
+        //     ctx.fillText(block.microbatch_id, x+(width/2), y2 + blockHeightY/2);
+        // });
     });
 }
 
 // 处理数据并绘制图形
-fetch('/jsonResult/iter_400_opeartion_list.json')
+fetch('/jsonResult/iter_20_opeartion_list.json')
     .then(response => response.text())
     .then(text => {
         // 将文本按JSON对象分割并解析

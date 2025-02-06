@@ -23,51 +23,56 @@ def run():
         print("Connected to server.")
         stub = rank_pb2_grpc.RankServiceStub(channel)
 
-        for i in range(4):
-            # 创建 Rank
-            print("Creating Rank...")
-            create_response = stub.CreateRank(rank_pb2.CreateRankRequest(
-                local_rank=i,
-                sendforwardtimes=0,
-                sendbackwardtimes=0
-            ))
-            print(f"Created Rank: {create_response.rank}")
+        # 创建 Rank
+        print("Creating Rank...")
+        create_response = stub.CreateRank(rank_pb2.CreateRankRequest(
+            stage_id=1,
+            chunk_id=0,
+            local_rank=2,
+            global_rank=2,
+            sendforwardtimes=10,
+            sendbackwardtimes=5,
+            latest_getrank_info={'sendforwardtimes': 0, 'sendbackwardtimes': 0}  # 初始化 latest_getrank_info
+        ))
+        print(f"Created Rank: {create_response.rank}")
+        rank_id = create_response.rank.id
 
-        # create_response = stub.CreateRank(rank_pb2.CreateRankRequest(
-        #     local_rank=2,
-        #     sendforwardtimes=7,
-        #     sendbackwardtimes=0
-        # ))
-        # print(f"Created Rank: {create_response.rank}")
-        # rank_id = create_response.rank.id
+        # 获取 Rank
+        print("Getting Rank...")
+        get_response = stub.GetRank(rank_pb2.GetRankRequest(id=rank_id))
+        print(f"Get Rank: {get_response.rank}")
+        print(f"Latest GetRank Info: {get_response.rank.latest_getrank_info}")
+
+        print("Updating ...")
+        update_response = stub.UpdateRank(rank_pb2.UpdateRankRequest(
+            id=rank_id,
+            stage_id=2,
+            chunk_id=0,
+            local_rank=0,
+            global_rank=0,
+            sendforwardtimes=0,
+            sendbackwardtimes=0,
+            latest_getrank_info={'sendforwardtimes': 3, 'sendbackwardtimes': 1}
+            )
+        )
+        print(f"Updated Rank : {update_response.rank}")
 
 
-        # # 更新 Rank
-        # print("Updating Rank...")
-        # update_response = stub.UpdateRank(rank_pb2.UpdateRankRequest(
-        #     id="2",
-        #     local_rank=2,
-        #     sendforwardtimes=20,
-        #     sendbackwardtimes=1
-        # ))
-        # print(f"Updated Rank: {update_response.rank}")
 
+        # 更新 sendforwardtimes
+        print("Updating sendforwardtimes...")
+        update_sendforward_response = stub.UpdateSendForwardTimes(rank_pb2.UpdateSendForwardTimesRequest(
+            id=rank_id,
+            sendforwardtimes=20
+        ))
+        print(f"Updated Rank (sendforwardtimes): {update_sendforward_response.rank}")
+        print(f"Latest GetRank Info: {update_sendforward_response.rank.latest_getrank_info}")
 
-        # # 获取 Rank
-        # print("Getting Rank by ID...")
-        # get_response = stub.GetRank(rank_pb2.GetRankRequest(id="2"))
-        # print(f"Get Rank sendforwardtimes: {get_response.rank.sendforwardtimes}")
-        
-        # 根据 local_rank 查询 Rank
-        for i in range(4):
-            print("Getting Rank by local_rank...")
-            get_by_local_rank_response = stub.GetRankByLocalRank(rank_pb2.GetRankByLocalRankRequest(local_rank=i))
-            print(f"Get Rank by local_rank : {get_by_local_rank_response.rank}")
-
-        # # 删除 Rank
-        # print("Deleting Rank...")
-        # delete_response = stub.DeleteRank(rank_pb2.DeleteRankRequest(id=rank_id))
-        # print(f"Delete Rank Success: {delete_response.success}")
+        # 根据 stage_id 查询 Rank
+        print("Getting Rank by stage_id...")
+        get_by_stage_id_response = stub.GetRankByStageId(rank_pb2.GetRankByStageIdRequest(stage_id=1))
+        print(f"Get Rank by stage_id: {get_by_stage_id_response.rank}")
+        print(f"Latest GetRank Info: {get_by_stage_id_response.rank.latest_getrank_info['sendforwardtimes']}")
 
     except grpc.RpcError as e:
         print(f"gRPC error: {e.code()}: {e.details()}")

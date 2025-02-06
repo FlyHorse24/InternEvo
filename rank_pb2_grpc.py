@@ -65,10 +65,20 @@ class RankServiceStub(object):
                 request_serializer=rank__pb2.DeleteRankRequest.SerializeToString,
                 response_deserializer=rank__pb2.DeleteRankResponse.FromString,
                 _registered_method=True)
-        self.GetRankByLocalRank = channel.unary_unary(
-                '/rank.RankService/GetRankByLocalRank',
-                request_serializer=rank__pb2.GetRankByLocalRankRequest.SerializeToString,
+        self.GetRankByStageId = channel.unary_unary(
+                '/rank.RankService/GetRankByStageId',
+                request_serializer=rank__pb2.GetRankByStageIdRequest.SerializeToString,
                 response_deserializer=rank__pb2.RankResponse.FromString,
+                _registered_method=True)
+        self.GetSendForwardTimesByStageId = channel.unary_unary(
+                '/rank.RankService/GetSendForwardTimesByStageId',
+                request_serializer=rank__pb2.GetSendForwardTimesByStageIdRequest.SerializeToString,
+                response_deserializer=rank__pb2.GetSendForwardTimesResponse.FromString,
+                _registered_method=True)
+        self.GetSendBackwardTimesByStageId = channel.unary_unary(
+                '/rank.RankService/GetSendBackwardTimesByStageId',
+                request_serializer=rank__pb2.GetSendBackwardTimesByStageIdRequest.SerializeToString,
+                response_deserializer=rank__pb2.GetSendBackwardTimesResponse.FromString,
                 _registered_method=True)
 
 
@@ -114,7 +124,21 @@ class RankServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetRankByLocalRank(self, request, context):
+    def GetRankByStageId(self, request, context):
+        """新增方法
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetSendForwardTimesByStageId(self, request, context):
+        """新增方法
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetSendBackwardTimesByStageId(self, request, context):
         """新增方法
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -154,10 +178,20 @@ def add_RankServiceServicer_to_server(servicer, server):
                     request_deserializer=rank__pb2.DeleteRankRequest.FromString,
                     response_serializer=rank__pb2.DeleteRankResponse.SerializeToString,
             ),
-            'GetRankByLocalRank': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetRankByLocalRank,
-                    request_deserializer=rank__pb2.GetRankByLocalRankRequest.FromString,
+            'GetRankByStageId': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetRankByStageId,
+                    request_deserializer=rank__pb2.GetRankByStageIdRequest.FromString,
                     response_serializer=rank__pb2.RankResponse.SerializeToString,
+            ),
+            'GetSendForwardTimesByStageId': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSendForwardTimesByStageId,
+                    request_deserializer=rank__pb2.GetSendForwardTimesByStageIdRequest.FromString,
+                    response_serializer=rank__pb2.GetSendForwardTimesResponse.SerializeToString,
+            ),
+            'GetSendBackwardTimesByStageId': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSendBackwardTimesByStageId,
+                    request_deserializer=rank__pb2.GetSendBackwardTimesByStageIdRequest.FromString,
+                    response_serializer=rank__pb2.GetSendBackwardTimesResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -334,7 +368,7 @@ class RankService(object):
             _registered_method=True)
 
     @staticmethod
-    def GetRankByLocalRank(request,
+    def GetRankByStageId(request,
             target,
             options=(),
             channel_credentials=None,
@@ -347,9 +381,63 @@ class RankService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/rank.RankService/GetRankByLocalRank',
-            rank__pb2.GetRankByLocalRankRequest.SerializeToString,
+            '/rank.RankService/GetRankByStageId',
+            rank__pb2.GetRankByStageIdRequest.SerializeToString,
             rank__pb2.RankResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetSendForwardTimesByStageId(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/rank.RankService/GetSendForwardTimesByStageId',
+            rank__pb2.GetSendForwardTimesByStageIdRequest.SerializeToString,
+            rank__pb2.GetSendForwardTimesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetSendBackwardTimesByStageId(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/rank.RankService/GetSendBackwardTimesByStageId',
+            rank__pb2.GetSendBackwardTimesByStageIdRequest.SerializeToString,
+            rank__pb2.GetSendBackwardTimesResponse.FromString,
             options,
             channel_credentials,
             insecure,

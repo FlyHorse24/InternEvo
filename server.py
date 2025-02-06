@@ -1,6 +1,5 @@
 import grpc
 from concurrent import futures
-from google.protobuf.timestamp_pb2 import Timestamp  # 引入 Timestamp
 import rank_pb2
 import rank_pb2_grpc
 
@@ -10,16 +9,15 @@ ranks_db = {}
 class RankService(rank_pb2_grpc.RankServiceServicer):
     def CreateRank(self, request, context):
         rank_id = str(len(ranks_db) + 1)  # 生成一个简单的 ID
-        timestamp = Timestamp()  # 创建时间戳
-        timestamp.GetCurrentTime()  # 设置为当前时间
         rank = rank_pb2.Rank(
             id=rank_id,
+            stage_id=request.stage_id,
+            chunk_id=request.chunk_id,
             local_rank=request.local_rank,
+            global_rank=request.global_rank,
             sendforwardtimes=request.sendforwardtimes,
             sendbackwardtimes=request.sendbackwardtimes,
-            timestamp=timestamp,  # 设置操作时间戳
-            last_getrank_timestamp=Timestamp(),  # 初始化 last_getrank_timestamp
-            index=request.index  # 使用客户端传入的 index
+            latest_getrank_info=request.latest_getrank_info  # 初始化 latest_getrank_info
         )
         ranks_db[rank_id] = rank
         return rank_pb2.RankResponse(rank=rank)
@@ -27,49 +25,38 @@ class RankService(rank_pb2_grpc.RankServiceServicer):
     def GetRank(self, request, context):
         rank = ranks_db.get(request.id)
         if rank:
-            # 更新 last_getrank_timestamp
-            last_getrank_timestamp = Timestamp()
-            last_getrank_timestamp.GetCurrentTime()
-            rank.last_getrank_timestamp.CopyFrom(last_getrank_timestamp)
             return rank_pb2.RankResponse(rank=rank)
-        context.set_code(grpc.StatusCode.NOT_FOUND)
-        context.set_details("Rank not found")
         return rank_pb2.RankResponse()
 
     def UpdateRank(self, request, context):
         rank = ranks_db.get(request.id)
         if rank:
-            timestamp = Timestamp()  # 创建时间戳
-            timestamp.GetCurrentTime()  # 设置为当前时间
+            rank.stage_id = request.stage_id
+            rank.chunk_id = request.chunk_id
             rank.local_rank = request.local_rank
+            rank.global_rank = request.global_rank
             rank.sendforwardtimes = request.sendforwardtimes
             rank.sendbackwardtimes = request.sendbackwardtimes
-            rank.timestamp.CopyFrom(timestamp)  # 更新操作时间戳
-            rank.index = request.index  # 更新 index
+            rank.latest_getrank_info['sendforwardtimes'] = request.latest_getrank_info['sendforwardtimes']
+            rank.latest_getrank_info['sendbackwardtimes'] = request.latest_getrank_info['sendbackwardtimes']
             return rank_pb2.RankResponse(rank=rank)
         context.set_code(grpc.StatusCode.NOT_FOUND)
         context.set_details("Rank not found")
         return rank_pb2.RankResponse()
 
-    def UpdateSendForwardTimes(self, request, context):  # 新增方法
+    def UpdateSendForwardTimes(self, request, context):
         rank = ranks_db.get(request.id)
         if rank:
-            timestamp = Timestamp()  # 创建时间戳
-            timestamp.GetCurrentTime()  # 设置为当前时间
-            rank.sendforwardtimes = request.sendforwardtimes  # 只更新 sendforwardtimes
-            rank.timestamp.CopyFrom(timestamp)  # 更新操作时间戳
+            rank.sendforwardtimes = request.sendforwardtimes
             return rank_pb2.RankResponse(rank=rank)
         context.set_code(grpc.StatusCode.NOT_FOUND)
         context.set_details("Rank not found")
         return rank_pb2.RankResponse()
 
-    def UpdateSendBackwardTimes(self, request, context):  # 新增方法
+    def UpdateSendBackwardTimes(self, request, context):
         rank = ranks_db.get(request.id)
         if rank:
-            timestamp = Timestamp()  # 创建时间戳
-            timestamp.GetCurrentTime()  # 设置为当前时间
-            rank.sendbackwardtimes = request.sendbackwardtimes  # 只更新 sendbackwardtimes
-            rank.timestamp.CopyFrom(timestamp)  # 更新操作时间戳
+            rank.sendbackwardtimes = request.sendbackwardtimes
             return rank_pb2.RankResponse(rank=rank)
         context.set_code(grpc.StatusCode.NOT_FOUND)
         context.set_details("Rank not found")
@@ -83,13 +70,30 @@ class RankService(rank_pb2_grpc.RankServiceServicer):
         context.set_details("Rank not found")
         return rank_pb2.DeleteRankResponse(success=False)
 
-    def GetRankByLocalRank(self, request, context):
+    def GetRankByStageId(self, request, context):
         for rank in ranks_db.values():
-            if rank.local_rank == request.local_rank:
+            if rank.stage_id == request.stage_id:
                 return rank_pb2.RankResponse(rank=rank)
-        context.set_code(grpc.StatusCode.NOT_FOUND)
-        context.set_details("Rank not found for the given local_rank")
         return rank_pb2.RankResponse()
+
+    def GetSendForwardTimesByStageId(self, request, context):
+        for rank in ranks_db.values():
+            if rank.stage_id == request.stage_id:
+                # 更新 latest_getrank_info 中的 sendforwardtimes
+                rank.latest_getrank_info['sendforwardtimes'] = rank.sendforwardtimes
+                return rank_pb2.GetSendForwardTimesResponse(sendforwardtimes=rank.sendforwardtimes)
+        # 未找到 Rank，返回错误
+        return rank_pb2.GetSendForwardTimesResponse()
+
+    def GetSendBackwardTimesByStageId(self, request, context):
+        for rank in ranks_db.values():
+            if rank.stage_id == request.stage_id:
+                # 更新 latest_getrank_info 中的 sendbackwardtimes
+                rank.latest_getrank_info['sendbackwardtimes'] = rank.sendbackwardtimes
+                return rank_pb2.GetSendBackwardTimesResponse(sendbackwardtimes=rank.sendbackwardtimes)
+        return rank_pb2.GetSendBackwardTimesResponse()
+
+
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))

@@ -22,36 +22,55 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nrank.proto\x12\x04rank\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd5\x01\n\x04Rank\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\nlocal_rank\x18\x02 \x01(\x05\x12\x18\n\x10sendforwardtimes\x18\x03 \x01(\x05\x12\x19\n\x11sendbackwardtimes\x18\x04 \x01(\x05\x12-\n\ttimestamp\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12:\n\x16last_getrank_timestamp\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\r\n\x05index\x18\x07 \x01(\x05\"k\n\x11\x43reateRankRequest\x12\x12\n\nlocal_rank\x18\x01 \x01(\x05\x12\x18\n\x10sendforwardtimes\x18\x02 \x01(\x05\x12\x19\n\x11sendbackwardtimes\x18\x03 \x01(\x05\x12\r\n\x05index\x18\x04 \x01(\x05\"\x1c\n\x0eGetRankRequest\x12\n\n\x02id\x18\x01 \x01(\t\"w\n\x11UpdateRankRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\nlocal_rank\x18\x02 \x01(\x05\x12\x18\n\x10sendforwardtimes\x18\x03 \x01(\x05\x12\x19\n\x11sendbackwardtimes\x18\x04 \x01(\x05\x12\r\n\x05index\x18\x05 \x01(\x05\"E\n\x1dUpdateSendForwardTimesRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x18\n\x10sendforwardtimes\x18\x02 \x01(\x05\"G\n\x1eUpdateSendBackwardTimesRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x19\n\x11sendbackwardtimes\x18\x02 \x01(\x05\"\x1f\n\x11\x44\x65leteRankRequest\x12\n\n\x02id\x18\x01 \x01(\t\"/\n\x19GetRankByLocalRankRequest\x12\x12\n\nlocal_rank\x18\x01 \x01(\x05\"(\n\x0cRankResponse\x12\x18\n\x04rank\x18\x01 \x01(\x0b\x32\n.rank.Rank\"%\n\x12\x44\x65leteRankResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x32\xec\x03\n\x0bRankService\x12\x39\n\nCreateRank\x12\x17.rank.CreateRankRequest\x1a\x12.rank.RankResponse\x12\x33\n\x07GetRank\x12\x14.rank.GetRankRequest\x1a\x12.rank.RankResponse\x12\x39\n\nUpdateRank\x12\x17.rank.UpdateRankRequest\x1a\x12.rank.RankResponse\x12Q\n\x16UpdateSendForwardTimes\x12#.rank.UpdateSendForwardTimesRequest\x1a\x12.rank.RankResponse\x12S\n\x17UpdateSendBackwardTimes\x12$.rank.UpdateSendBackwardTimesRequest\x1a\x12.rank.RankResponse\x12?\n\nDeleteRank\x12\x17.rank.DeleteRankRequest\x1a\x18.rank.DeleteRankResponse\x12I\n\x12GetRankByLocalRank\x12\x1f.rank.GetRankByLocalRankRequest\x1a\x12.rank.RankResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nrank.proto\x12\x04rank\"\x8e\x02\n\x04Rank\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08stage_id\x18\x02 \x01(\x05\x12\x10\n\x08\x63hunk_id\x18\x03 \x01(\x05\x12\x12\n\nlocal_rank\x18\x04 \x01(\x05\x12\x13\n\x0bglobal_rank\x18\x05 \x01(\x05\x12\x18\n\x10sendforwardtimes\x18\x06 \x01(\x05\x12\x19\n\x11sendbackwardtimes\x18\x07 \x01(\x05\x12>\n\x13latest_getrank_info\x18\x08 \x03(\x0b\x32!.rank.Rank.LatestGetrankInfoEntry\x1a\x38\n\x16LatestGetrankInfoEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\"\x9c\x02\n\x11\x43reateRankRequest\x12\x10\n\x08stage_id\x18\x01 \x01(\x05\x12\x10\n\x08\x63hunk_id\x18\x02 \x01(\x05\x12\x12\n\nlocal_rank\x18\x03 \x01(\x05\x12\x13\n\x0bglobal_rank\x18\x04 \x01(\x05\x12\x18\n\x10sendforwardtimes\x18\x05 \x01(\x05\x12\x19\n\x11sendbackwardtimes\x18\x06 \x01(\x05\x12K\n\x13latest_getrank_info\x18\x07 \x03(\x0b\x32..rank.CreateRankRequest.LatestGetrankInfoEntry\x1a\x38\n\x16LatestGetrankInfoEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\"\x1c\n\x0eGetRankRequest\x12\n\n\x02id\x18\x01 \x01(\t\"\xa8\x02\n\x11UpdateRankRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08stage_id\x18\x02 \x01(\x05\x12\x10\n\x08\x63hunk_id\x18\x03 \x01(\x05\x12\x12\n\nlocal_rank\x18\x04 \x01(\x05\x12\x13\n\x0bglobal_rank\x18\x05 \x01(\x05\x12\x18\n\x10sendforwardtimes\x18\x06 \x01(\x05\x12\x19\n\x11sendbackwardtimes\x18\x07 \x01(\x05\x12K\n\x13latest_getrank_info\x18\x08 \x03(\x0b\x32..rank.UpdateRankRequest.LatestGetrankInfoEntry\x1a\x38\n\x16LatestGetrankInfoEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\"E\n\x1dUpdateSendForwardTimesRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x18\n\x10sendforwardtimes\x18\x02 \x01(\x05\"G\n\x1eUpdateSendBackwardTimesRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x19\n\x11sendbackwardtimes\x18\x02 \x01(\x05\"\x1f\n\x11\x44\x65leteRankRequest\x12\n\n\x02id\x18\x01 \x01(\t\"+\n\x17GetRankByStageIdRequest\x12\x10\n\x08stage_id\x18\x01 \x01(\x05\"7\n#GetSendForwardTimesByStageIdRequest\x12\x10\n\x08stage_id\x18\x01 \x01(\x05\"8\n$GetSendBackwardTimesByStageIdRequest\x12\x10\n\x08stage_id\x18\x01 \x01(\x05\"7\n\x1bGetSendForwardTimesResponse\x12\x18\n\x10sendforwardtimes\x18\x01 \x01(\x05\"9\n\x1cGetSendBackwardTimesResponse\x12\x19\n\x11sendbackwardtimes\x18\x01 \x01(\x05\"(\n\x0cRankResponse\x12\x18\n\x04rank\x18\x01 \x01(\x0b\x32\n.rank.Rank\"%\n\x12\x44\x65leteRankResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x32\xc7\x05\n\x0bRankService\x12\x39\n\nCreateRank\x12\x17.rank.CreateRankRequest\x1a\x12.rank.RankResponse\x12\x33\n\x07GetRank\x12\x14.rank.GetRankRequest\x1a\x12.rank.RankResponse\x12\x39\n\nUpdateRank\x12\x17.rank.UpdateRankRequest\x1a\x12.rank.RankResponse\x12Q\n\x16UpdateSendForwardTimes\x12#.rank.UpdateSendForwardTimesRequest\x1a\x12.rank.RankResponse\x12S\n\x17UpdateSendBackwardTimes\x12$.rank.UpdateSendBackwardTimesRequest\x1a\x12.rank.RankResponse\x12?\n\nDeleteRank\x12\x17.rank.DeleteRankRequest\x1a\x18.rank.DeleteRankResponse\x12\x45\n\x10GetRankByStageId\x12\x1d.rank.GetRankByStageIdRequest\x1a\x12.rank.RankResponse\x12l\n\x1cGetSendForwardTimesByStageId\x12).rank.GetSendForwardTimesByStageIdRequest\x1a!.rank.GetSendForwardTimesResponse\x12o\n\x1dGetSendBackwardTimesByStageId\x12*.rank.GetSendBackwardTimesByStageIdRequest\x1a\".rank.GetSendBackwardTimesResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'rank_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_RANK']._serialized_start=54
-  _globals['_RANK']._serialized_end=267
-  _globals['_CREATERANKREQUEST']._serialized_start=269
-  _globals['_CREATERANKREQUEST']._serialized_end=376
-  _globals['_GETRANKREQUEST']._serialized_start=378
-  _globals['_GETRANKREQUEST']._serialized_end=406
-  _globals['_UPDATERANKREQUEST']._serialized_start=408
-  _globals['_UPDATERANKREQUEST']._serialized_end=527
-  _globals['_UPDATESENDFORWARDTIMESREQUEST']._serialized_start=529
-  _globals['_UPDATESENDFORWARDTIMESREQUEST']._serialized_end=598
-  _globals['_UPDATESENDBACKWARDTIMESREQUEST']._serialized_start=600
-  _globals['_UPDATESENDBACKWARDTIMESREQUEST']._serialized_end=671
-  _globals['_DELETERANKREQUEST']._serialized_start=673
-  _globals['_DELETERANKREQUEST']._serialized_end=704
-  _globals['_GETRANKBYLOCALRANKREQUEST']._serialized_start=706
-  _globals['_GETRANKBYLOCALRANKREQUEST']._serialized_end=753
-  _globals['_RANKRESPONSE']._serialized_start=755
-  _globals['_RANKRESPONSE']._serialized_end=795
-  _globals['_DELETERANKRESPONSE']._serialized_start=797
-  _globals['_DELETERANKRESPONSE']._serialized_end=834
-  _globals['_RANKSERVICE']._serialized_start=837
-  _globals['_RANKSERVICE']._serialized_end=1329
+  _globals['_RANK_LATESTGETRANKINFOENTRY']._loaded_options = None
+  _globals['_RANK_LATESTGETRANKINFOENTRY']._serialized_options = b'8\001'
+  _globals['_CREATERANKREQUEST_LATESTGETRANKINFOENTRY']._loaded_options = None
+  _globals['_CREATERANKREQUEST_LATESTGETRANKINFOENTRY']._serialized_options = b'8\001'
+  _globals['_UPDATERANKREQUEST_LATESTGETRANKINFOENTRY']._loaded_options = None
+  _globals['_UPDATERANKREQUEST_LATESTGETRANKINFOENTRY']._serialized_options = b'8\001'
+  _globals['_RANK']._serialized_start=21
+  _globals['_RANK']._serialized_end=291
+  _globals['_RANK_LATESTGETRANKINFOENTRY']._serialized_start=235
+  _globals['_RANK_LATESTGETRANKINFOENTRY']._serialized_end=291
+  _globals['_CREATERANKREQUEST']._serialized_start=294
+  _globals['_CREATERANKREQUEST']._serialized_end=578
+  _globals['_CREATERANKREQUEST_LATESTGETRANKINFOENTRY']._serialized_start=235
+  _globals['_CREATERANKREQUEST_LATESTGETRANKINFOENTRY']._serialized_end=291
+  _globals['_GETRANKREQUEST']._serialized_start=580
+  _globals['_GETRANKREQUEST']._serialized_end=608
+  _globals['_UPDATERANKREQUEST']._serialized_start=611
+  _globals['_UPDATERANKREQUEST']._serialized_end=907
+  _globals['_UPDATERANKREQUEST_LATESTGETRANKINFOENTRY']._serialized_start=235
+  _globals['_UPDATERANKREQUEST_LATESTGETRANKINFOENTRY']._serialized_end=291
+  _globals['_UPDATESENDFORWARDTIMESREQUEST']._serialized_start=909
+  _globals['_UPDATESENDFORWARDTIMESREQUEST']._serialized_end=978
+  _globals['_UPDATESENDBACKWARDTIMESREQUEST']._serialized_start=980
+  _globals['_UPDATESENDBACKWARDTIMESREQUEST']._serialized_end=1051
+  _globals['_DELETERANKREQUEST']._serialized_start=1053
+  _globals['_DELETERANKREQUEST']._serialized_end=1084
+  _globals['_GETRANKBYSTAGEIDREQUEST']._serialized_start=1086
+  _globals['_GETRANKBYSTAGEIDREQUEST']._serialized_end=1129
+  _globals['_GETSENDFORWARDTIMESBYSTAGEIDREQUEST']._serialized_start=1131
+  _globals['_GETSENDFORWARDTIMESBYSTAGEIDREQUEST']._serialized_end=1186
+  _globals['_GETSENDBACKWARDTIMESBYSTAGEIDREQUEST']._serialized_start=1188
+  _globals['_GETSENDBACKWARDTIMESBYSTAGEIDREQUEST']._serialized_end=1244
+  _globals['_GETSENDFORWARDTIMESRESPONSE']._serialized_start=1246
+  _globals['_GETSENDFORWARDTIMESRESPONSE']._serialized_end=1301
+  _globals['_GETSENDBACKWARDTIMESRESPONSE']._serialized_start=1303
+  _globals['_GETSENDBACKWARDTIMESRESPONSE']._serialized_end=1360
+  _globals['_RANKRESPONSE']._serialized_start=1362
+  _globals['_RANKRESPONSE']._serialized_end=1402
+  _globals['_DELETERANKRESPONSE']._serialized_start=1404
+  _globals['_DELETERANKRESPONSE']._serialized_end=1441
+  _globals['_RANKSERVICE']._serialized_start=1444
+  _globals['_RANKSERVICE']._serialized_end=2155
 # @@protoc_insertion_point(module_scope)

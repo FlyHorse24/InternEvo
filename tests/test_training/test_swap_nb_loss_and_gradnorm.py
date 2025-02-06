@@ -21,7 +21,7 @@ from internlm.data import (
 )
 from internlm.eval.evaluation import switch_evaluation_mode
 from internlm.initialize.launch import args_sanity_check
-from internlm.model.losses import FlashGPTLMLoss
+from internlm.model.losses import InternLoss
 from internlm.model.metrics import AccPerplex, SchedulerMetricHook
 from internlm.train import (
     initialize_model,
@@ -37,6 +37,7 @@ internlm_accelerator = get_accelerator()
 TOTAL_STEPS = 300
 config = Config(
     dict(
+        VOCAB_SIZE=103168,
         parallel=dict(
             zero1=dict(size=-1),
             tensor=dict(size=1, mode="mtp"),
@@ -274,7 +275,7 @@ def exam_loss(args):
     _ = initialize_parallel_communicator(model)
 
     # initialize loss function
-    criterion = FlashGPTLMLoss(parallel_output=True, label_smoothing=gpc.config.loss.label_smoothing)
+    criterion = InternLoss(parallel_output=True, label_smoothing=gpc.config.loss.label_smoothing)
 
     # initialize the train and validation data loader
     train_dl, dataset_types = build_train_loader_with_data_type()
