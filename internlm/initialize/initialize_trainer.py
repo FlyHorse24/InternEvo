@@ -158,6 +158,7 @@ def initialize_trainer(
                 optimizer=optimizer,
                 unified_scheduler=gpc.config.unified_scheduler,
                 stage_placement = gpc.config.stage_placement,
+                comm_graph=gpc.config.comm_graph,
                 )
             else:
                 scheduler = UnifiedSingleChunkPipelineScheduler(
@@ -169,6 +170,7 @@ def initialize_trainer(
                     scheduler_hooks=scheduler_hooks,
                     optimizer=optimizer,
                     unified_scheduler=gpc.config.unified_scheduler,
+                    comm_graph=gpc.config.comm_graph,
                 )
         else:
             scheduler = PipelineScheduler(

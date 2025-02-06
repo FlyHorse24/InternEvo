@@ -589,7 +589,7 @@ def fused_send_recv_tensor(
     return tensor_recv_prev, tensor_recv_next
 
 
-class AsynCommunicator_orgain:
+class AsynCommunicator:
     """AsynCommunicator for managing async communication."""
 
     def __init__(
@@ -631,7 +631,7 @@ class AsynCommunicator_orgain:
         return received
 
 
-class AsynCommunicator:
+class AsynCommunicatorPP:
     """AsynCommunicator for managing async communication."""
 
     def __init__(
