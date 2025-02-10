@@ -56,9 +56,11 @@ def order_result_mutichunk(input: str, stage_alignment: list) -> None:
         device_id = _get_deviceid_by_alignment(stage_id, stage_alignment)
         chunk_id = _get_chunk_by_stage(stage_id, stage_alignment)
         device_steps[device_id].append((step_type, microbatch_id, stage_id, chunk_id, start_time, end_time))
+    print('[')
     for d in range(len(stage_alignment)):
         device_steps[d].sort(key=lambda x: x[-2])
-    result = device_steps
+        print(f'{device_steps[d]},')
+    print(']')
     #result = []
     # for stage_idx, stage_list in enumerate(device_steps):
     #     new_stage_list = []
@@ -66,7 +68,7 @@ def order_result_mutichunk(input: str, stage_alignment: list) -> None:
     #         op, mb_id, stage_id, chunk_id, start_time = current_tuple
     #         new_stage_list.append((op, mb_id, stage_id))
     #     result.append(new_stage_list)
-    return result
+    return device_steps
 def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_data 是之前生成的计算图
     # 初始化通信图
     communication_graph = []
@@ -100,14 +102,12 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
             
             # 处理上一个 stage (stage-1)
             for i in range(len(needrecv['F_stage'])):
-
                 recvFstage_id = needrecv['F_stage'][i]
                 recvFdevice_id = needrecv['F_device'][i]
                 prev_stage_ops = grouped_data[recvFdevice_id]
                 for n, prev_op in enumerate(prev_stage_ops):
                     prev_op_name, prev_microbatch_id, prev_stage_id, prev_chunk_id, prev_start_time, prev_end_time = prev_op
-                    if prev_start_time > end_time:
-                        break
+                    
                     # 跳过已经接收的 f 操作
                     if prev_op in received_prev_stage:
                         continue
@@ -115,10 +115,11 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
                         continue
                     # 如果本次操作为f 且microbatch_id 相同
                     if op == 'f' and prev_microbatch_id == microbatch_id:           
-                        comm_op['B'].append(('f', prev_end_time, recvFdevice_id, prev_stage_id, prev_microbatch_id, n, 0))
+                        comm_op['B'].append(('f', prev_end_time, recvFdevice_id, prev_stage_id,prev_chunk_id, prev_microbatch_id, n, 0))
                         received_prev_stage.add(prev_op)  # 标记为已接收
                         continue
-
+                    if prev_start_time > end_time:
+                        break
                     # 计算时间区间
                     interval_start = prev_end_time
                     interval_end = prev_stage_ops[n + 1][-2] if n + 1 < len(prev_stage_ops) else prev_end_time
@@ -132,11 +133,11 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
                     min_dist = min(current_start_dist, current_end_dist, next_start_dist,next_end_dist)
 
                     if min_dist == current_start_dist:
-                        comm_op['B'].append(('f', prev_end_time, recvFdevice_id, prev_stage_id, prev_microbatch_id, n, 0))
+                        comm_op['B'].append(('f', prev_end_time, recvFdevice_id, prev_stage_id,prev_chunk_id, prev_microbatch_id, n, 0))
                         received_prev_stage.add(prev_op)  # 标记为已接收
                         continue
                     elif min_dist == current_end_dist:
-                        comm_op['A'].append(('f',prev_end_time, recvFdevice_id, prev_stage_id, prev_microbatch_id,n,0))
+                        comm_op['A'].append(('f',prev_end_time, recvFdevice_id, prev_stage_id,prev_chunk_id, prev_microbatch_id, n, 0))
                         received_prev_stage.add(prev_op)  # 标记为已接收
                         continue
                     elif min_dist == next_start_dist:
@@ -152,8 +153,7 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
 
                 for n, next_op in enumerate(next_stage_ops):
                     next_op_name, next_microbatch_id, next_stage_id, next_chunk_id, next_start_time, next_end_time = next_op
-                    if next_start_time > end_time:
-                        break
+
                     if next_op_name != 'b' or recvBstage_id != next_stage_id:
                         continue
                     # 跳过已经接收的 f 操作
@@ -162,10 +162,11 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
 
                     # 如果本次操作为b 且 microbatch_id 相同
                     if op == 'b' and next_microbatch_id == microbatch_id:
-                        comm_op['B'].append(('b', next_end_time, recvBdevice_id, next_stage_id,next_microbatch_id,n,0))
+                        comm_op['B'].append(('b', next_end_time, recvBdevice_id, next_stage_id, next_chunk_id, next_microbatch_id,n,0))
                         received_next_stage.add(next_op)  # 标记为已接收
                         continue
-
+                    if next_start_time > end_time:
+                        break
                     # 计算时间区间
                     interval_start = next_end_time
                     interval_end = next_stage_ops[n + 1][-2] if n + 1 < len(next_stage_ops) else next_end_time
@@ -179,11 +180,11 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
                     min_dist = min(current_start_dist, current_end_dist, next_start_dist, next_end_dist)
 
                     if min_dist == current_start_dist:
-                        comm_op['B'].append(('b', next_end_time, recvBdevice_id, next_stage_id,next_microbatch_id,n,0))
+                        comm_op['B'].append(('b', next_end_time, recvBdevice_id, next_stage_id, next_chunk_id, next_microbatch_id,n,0))
                         received_next_stage.add(next_op)
                         continue
                     elif min_dist == current_end_dist:
-                        comm_op['A'].append(('b', next_end_time, recvBdevice_id, next_stage_id,next_microbatch_id,n,0))
+                        comm_op['A'].append(('b', next_end_time, recvBdevice_id, next_stage_id, next_chunk_id, next_microbatch_id,n,0))
                         received_next_stage.add(next_op)
                         continue
                     elif min_dist == next_start_dist:
@@ -195,13 +196,11 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
 
             # 将通信元组添加到当前 stage 的通信图中
             communication_stage.append(comm_op)
-
         # 将当前 stage 的通信图添加到总的通信图中
         communication_graph.append(communication_stage)
         #print(communication_stage)
     communication_graph = detect_deadlock_mutichunk(communication_graph,stage_alignment)
-
-    #print(communication_graph)
+    print('[')
     # # 输出通信图
     for rank_id, comm_stage in enumerate(communication_graph):
         recvF = 0
@@ -217,7 +216,10 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
                     recvB += 1
                 elif recvlistA[0] == 'f':
                     recvF += 1
-        print(f"rank_id {rank_id}: recvF {recvF}, recvB {recvB}")
+        #print(f"rank_id {rank_id}: recvF {recvF}, recvB {recvB}")
+        print(f'{comm_stage},')
+    print(']')
+    #print(communication_graph)
 def detect_deadlock_mutichunk(communication_graph, stage_alignment):
     sendFtoSameDevice,sendBtoSameDevice = SendToSameDevice(stage_alignment)
     max_stage_id = max([stage_id for _, stage_id in stage_alignment])
@@ -237,16 +239,16 @@ def detect_deadlock_mutichunk(communication_graph, stage_alignment):
                 continue
             # 检查接收操作
             for i in range(len(op['A'])):
-                recv_op_type, recv_end_time, recv_device_id, recv_stage_id, recv_microbatch_id, index,_ = op['A'][i]
+                recv_op_type, recv_end_time, recv_device_id, recv_stage_id, recv_chunk_id, recv_microbatch_id, index,_ = op['A'][i]
                 source_rank_id = _get_deviceid_by_alignment(recv_stage_id,stage_alignment)
                 if rank_id == source_rank_id or source_rank_id != dst_rank_id:
                     continue
                 next_op = communication_graph[source_rank_id][index]
                 for j in range(len(next_op['A'])):
-                    next_recv_op_type, next_recv_end_time, next_recv_device_id, next_recv_stage_id, next_recv_microbatch_id, next_index,_ = next_op['A'][j]
+                    next_recv_op_type, next_recv_end_time, next_recv_device_id, next_recv_stage_id, next_recv_chunk_id, next_recv_microbatch_id, next_index,_ = next_op['A'][j]
                     if (next_recv_op_type,next_recv_stage_id,next_recv_microbatch_id) == op['Infor']:
-                        op['A'][i] = (recv_op_type, recv_end_time, recv_stage_id, recv_microbatch_id, index, 1)
-                        next_op['A'][j] = (next_recv_op_type, next_recv_end_time, next_recv_stage_id, next_recv_microbatch_id, next_index, 1)
+                        op['A'][i] = (recv_op_type, recv_end_time,recv_device_id, recv_stage_id, recv_chunk_id, recv_microbatch_id, index, 1)
+                        next_op['A'][j] = (next_recv_op_type, next_recv_end_time, next_recv_device_id, next_recv_stage_id, next_recv_chunk_id, next_recv_microbatch_id, next_index, 1)
 
     return communication_graph
 
@@ -476,173 +478,173 @@ f_6_0,78,91
 f_2_3,85,97
 f_1_5,87,99
 f_5_1,89,101
-f_0_7,91,112
+f_0_7,91,114
 f_2_4,97,109
 f_4_2,99,111
 f_1_6,101,113
 f_3_3,109,121
 f_2_5,111,123
-b_0_7,112,147
 f_6_1,113,125
+b_0_7,114,157
 f_3_4,121,133
 f_5_2,123,135
 f_2_6,125,137
 f_4_3,133,145
 f_3_5,135,147
 f_4_4,145,157
-w_0_7,147,158
-b_0_6,147,167
+f_3_6,147,159
 f_6_2,147,159
+w_0_7,157,172
 f_5_3,157,169
-f_1_7,158,179
+b_0_6,159,183
 f_4_5,159,171
-w_0_6,167,175
 f_5_4,169,181
-b_0_5,171,191
-f_3_6,175,187
-b_1_7,179,214
+f_1_7,172,195
+f_5_5,181,193
 f_6_3,181,193
-f_4_6,187,199
-w_0_5,191,199
-b_0_4,193,213
-f_5_5,199,211
-f_5_6,211,223
-w_0_4,213,221
-w_1_7,214,225
-f_6_4,221,233
-b_1_6,223,243
-f_2_7,225,246
-f_6_5,233,245
-b_0_3,233,253
-w_1_6,243,251
-b_1_5,245,265
-b_2_7,246,281
-f_6_6,251,263
-w_0_3,253,261
-w_1_5,265,273
-b_1_4,265,285
-b_0_2,273,293
-w_2_7,281,292
-b_2_6,281,301
-w_1_4,285,293
-f_3_7,292,313
-w_0_2,293,301
-b_1_3,293,313
-w_2_6,301,309
-b_2_5,301,321
-b_0_1,309,329
-b_3_7,313,348
-w_1_3,313,321
-w_2_5,321,329
-b_2_4,321,341
-w_0_1,329,337
-b_1_2,329,349
-w_2_4,341,349
-w_3_7,348,359
-b_3_6,348,368
-w_1_2,349,357
-b_2_3,349,369
-f_4_7,359,380
-w_3_6,368,376
-b_3_5,368,388
-w_2_3,369,377
-b_1_1,376,396
-b_0_0,380,401
-w_3_5,388,396
-b_3_4,388,408
-w_1_1,396,404
-b_2_2,396,416
-w_0_0,400,409
-f_5_7,408,429
-w_3_4,408,416
-b_2_1,416,436
-w_2_2,416,424
-b_3_3,416,436
-b_1_0,429,450
-w_2_1,436,444
-b_3_2,436,456
-w_3_3,436,444
-w_1_0,449,458
-b_3_1,456,476
-w_3_2,456,464
-f_6_7,457,478
-w_3_1,476,484
-b_2_0,478,499
-w_2_0,498,507
-f_7_0,506,519
-b_3_0,519,540
-f_7_1,519,531
-f_7_2,531,543
-w_3_0,539,548
-f_7_3,543,555
-b_4_7,547,582
-f_7_4,555,567
-f_7_5,567,579
-f_7_6,579,591
-w_4_7,582,593
-b_4_6,591,611
-f_7_7,593,614
-w_4_6,611,619
-b_4_5,611,631
-b_5_7,614,649
-w_4_5,631,639
-b_4_4,631,651
-b_6_7,649,684
-b_5_6,649,669
-b_4_3,651,671
-w_5_6,669,677
-b_5_5,669,689
-w_4_3,671,679
-w_4_4,679,687
-b_7_7,684,719
-b_6_6,684,704
-b_4_2,689,709
-b_5_4,689,709
-w_6_6,704,712
-b_6_5,709,729
-b_5_3,709,729
-b_4_1,712,732
-w_5_7,719,730
-b_5_2,729,749
-b_6_4,729,749
-w_6_7,730,741
-b_7_6,732,752
-b_4_0,741,762
-w_4_2,749,757
-b_6_3,749,769
-b_5_1,752,772
-b_7_5,757,777
-w_4_0,761,770
-w_7_7,769,780
-w_5_3,769,777
-w_4_1,772,780
-b_6_2,777,797
-b_7_4,777,797
-b_5_0,780,801
-w_5_1,780,788
-w_7_6,788,796
-b_6_1,797,817
-w_5_2,797,805
-b_7_3,797,817
-w_5_0,800,809
-w_5_5,805,813
-w_6_2,813,821
-b_6_0,817,838
-w_6_1,817,825
-w_5_4,817,825
-b_7_2,821,841
-w_6_3,825,833
-w_6_4,833,841
-w_6_0,837,846
-b_7_1,841,861
-w_6_5,841,849
-w_7_3,841,849
-w_7_2,849,857
-w_7_4,849,857
-w_7_5,857,865
-b_7_0,861,882
-w_7_1,861,869
-w_7_0,881,890
+w_0_6,183,195
+b_0_5,193,217
+f_6_4,193,205
+b_1_7,195,238
+f_4_6,195,207
+f_5_6,207,219
+w_0_5,217,229
+b_0_4,217,241
+f_6_5,229,241
+w_1_7,238,253
+b_1_6,238,262
+w_0_4,241,253
+f_2_7,253,276
+b_0_3,253,277
+w_1_6,262,274
+b_1_5,262,286
+f_6_6,274,286
+b_2_7,276,319
+w_0_3,277,289
+w_1_5,286,298
+b_1_4,289,313
+b_0_2,298,322
+w_1_4,313,325
+w_2_7,319,334
+b_2_6,319,343
+w_0_2,322,334
+b_1_3,325,349
+f_3_7,334,357
+w_2_6,343,355
+b_2_5,343,367
+w_1_3,349,361
+b_0_1,355,379
+b_3_7,357,400
+w_2_5,367,379
+b_2_4,367,391
+w_0_1,379,391
+b_1_2,379,403
+w_2_4,391,403
+w_3_7,400,415
+b_3_6,400,424
+w_1_2,403,415
+b_2_3,403,427
+f_4_7,415,438
+w_3_6,424,436
+b_3_5,424,448
+w_2_3,427,439
+b_1_1,436,460
+b_0_0,438,462
+w_3_5,448,460
+b_3_4,448,472
+w_1_1,460,472
+b_2_2,460,484
+w_0_0,462,474
+w_3_4,472,484
+f_5_7,474,497
+b_2_1,484,508
+w_2_2,484,496
+b_3_3,484,508
+b_1_0,497,521
+w_2_1,508,520
+b_3_2,508,532
+w_3_3,508,520
+w_1_0,521,533
+b_3_1,532,556
+w_3_2,532,544
+f_6_7,533,556
+b_2_0,556,580
+w_3_1,556,568
+w_2_0,580,592
+f_7_0,592,605
+b_3_0,605,629
+f_7_1,605,617
+f_7_2,617,629
+w_3_0,629,641
+f_7_3,629,641
+b_4_7,641,684
+f_7_4,641,653
+f_7_5,653,665
+f_7_6,665,677
+w_4_7,684,699
+b_4_6,684,708
+f_7_7,699,722
+w_4_6,708,720
+b_4_5,708,732
+b_5_7,722,765
+w_4_5,732,744
+b_4_4,732,756
+b_4_3,756,780
+b_6_7,765,808
+b_5_6,765,789
+b_4_2,780,804
+w_4_3,780,792
+w_5_6,789,801
+w_4_4,792,804
+b_4_1,804,828
+b_5_5,804,828
+b_7_7,808,851
+b_6_6,828,852
+w_4_2,828,840
+b_5_4,828,852
+w_5_5,840,852
+b_4_0,851,875
+b_7_6,852,876
+b_6_5,852,876
+b_5_3,852,876
+w_4_0,875,887
+w_4_1,876,888
+b_5_2,876,900
+b_6_4,876,900
+w_5_7,887,902
+w_6_6,888,900
+b_5_1,900,924
+b_7_5,900,924
+b_6_3,900,924
+w_6_7,902,917
+w_7_7,917,932
+w_5_1,924,936
+b_6_2,924,948
+b_7_4,924,948
+b_5_0,932,956
+w_7_6,936,948
+b_6_1,948,972
+w_5_2,948,960
+b_7_3,948,972
+w_5_0,956,968
+w_6_2,960,972
+b_6_0,972,996
+w_6_1,972,984
+b_7_2,972,996
+w_5_3,972,984
+w_5_4,984,996
+w_6_0,996,1008
+b_7_1,996,1020
+w_6_5,996,1008
+w_6_3,996,1008
+w_7_2,1008,1020
+w_6_4,1008,1020
+b_7_0,1020,1044
+w_7_1,1020,1032
+w_7_5,1020,1032
+w_7_3,1020,1032
+w_7_4,1032,1044
+w_7_0,1044,1056
 """
     result = order_result_mutichunk(input_str,stage_alignment)
     print(result)

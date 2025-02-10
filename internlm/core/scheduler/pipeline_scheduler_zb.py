@@ -403,15 +403,15 @@ class ZeroBubblePipelineVShapeScheduler(InterleavedPipelineScheduler):
             scheduler_hooks (List[SchedulerHook], optional): List of scheduler hooks. Default is None.
         """
 
-        assert (
-            isinstance(num_chunks, int) and num_chunks == 2
-        ), f"expect num_chunks to be an integer and equal to 2 for ZBV, but got {num_chunks}."
+        # assert (
+        #     isinstance(num_chunks, int) and num_chunks == 2
+        # ), f"expect num_chunks to be an integer and equal to 2 for ZBV, but got {num_chunks}."
 
-        assert num_microbatches >= 2 * gpc.get_world_size(
-            ParallelMode.PIPELINE
-        ), "For ZBV, num_microbatches must be greater than or equal to twice pp size."
+        # assert num_microbatches >= 2 * gpc.get_world_size(
+        #     ParallelMode.PIPELINE
+        # ), "For ZBV, num_microbatches must be greater than or equal to twice pp size."
 
-        assert gpc.v_shape
+        # assert gpc.v_shape
 
         super().__init__(
             num_microbatches,
