@@ -746,73 +746,7 @@ class UnifiedMultipleChunksPipelineScheduler(ZeroBubblePipelineVShapeScheduler):
         self.stage_placement = stage_placement
         self.comm_graph = comm_graph
         self.last_stage = max([stage_id for _, stage_id in stage_placement])
-    def _forward_step(self, engine, stage_id, chunk_id, input_obj=None):
-        """Forward step for passed-in model. If it is the first stage, the input tensor
-        is obtained from data_iterator, otherwise the passed-in input_obj is used.
-        Returns output tensor. This is a helper function and can be ignored by users.
 
-        Args:
-            engine (colossalai.engine.Engine): Colossalai engine for training and inference.
-            chunk_id (int): The id of model chunks.
-        Returns:
-            Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]: output or the loss value of the current
-                pipeline stage.
-        """
-        gpc.set_virtual_pipeline_parallel_rank(chunk_id)
-        if stage_id == 7 and self._accum_loss is None:#FIX,this is special case for v_shape
-            self._accum_loss = torch.zeros(1, device=get_current_device())
-        # if gpc.is_pipeline_first_stage() and len(self._input_objs[chunk_id]) == len(self._output_objs[chunk_id]):
-        #     self._input_objs[chunk_id].append(None)
-
-        # if input_obj is None:
-        #     input_obj = self._input_objs[chunk_id][-1]
-   
-        if stage_id>0:
-            assert input_obj is not None, f"{gpc.get_global_rank()} input is None"
-        micro_batch_data = self.load_micro_batch(chunk_id)
-        data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data)
-
-        self._call_hooks("before_forward", data)
-        if hasattr(gpc.config.model, "num_experts"):
-            output_obj, moe_losses = self._call_engine(engine.model[chunk_id], data)
-        else:
-            output_obj = self._call_engine(engine.model[chunk_id], data)
-        # Convert output_obj to fp32 when last model chunk of last stage
-        if stage_id == self.last_stage and isinstance(engine.model[chunk_id], NaiveAMPModel):
-            output_obj = engine.model[chunk_id].convert_to_fp32(output_obj)
-        self._call_hooks("after_forward", output_obj)
-
-        if stage_id == self.last_stage :
-            self._call_hooks("post_helper_func", output_obj, label)
-
-            if self._return_tensors is not None:
-                self._return_tensors.append((output_obj, label))
-            if self._accum_loss is not None:
-                self._call_hooks("before_criterion", output_obj, label)
-                loss = self._call_engine_criterion(engine, output_obj, label)
-                self._call_hooks("after_criterion", loss)
-                loss_reduced = loss / self.num_microbatches
-                self._accum_loss.add_(loss_reduced.detach())
-                output_obj = loss_reduced
-
-        moe_loss = (
-            sum(moe_losses) * gpc.config.loss.moe_loss_coeff  # pylint: disable=E0606
-            if hasattr(gpc.config.model, "num_experts") and gpc.config.model.num_experts > 1
-            else torch.tensor(0.0, device=get_current_device(), dtype=gpc.config.model.get("dtype"))
-        )
-        # the moe_loss is computed among the "tensor" group if sequence parallel is enabled, so we need to do allreduce
-        if gpc.config.parallel.sequence_parallel or gpc.config.parallel.expert.no_tp:
-            dist.all_reduce(moe_loss, op=dist.ReduceOp.AVG, group=gpc.get_group(ParallelMode.TENSOR))
-        moe_loss /= self.num_microbatches
-
-        if self._accum_moe_loss is not None:
-            self._accum_moe_loss.add_(moe_loss.detach())
-
-        self._output_objs[chunk_id].append(output_obj)
-        self._moe_losses[chunk_id].append(moe_loss)
-        assert output_obj is not None, f"{gpc.get_global_rank()} chunk{chunk_id} output is None"
-
-        return output_obj
     def _schedule_backward(self, engine, stage_id, chunk_id):
         """
         Backward step for passed-in model. If it is the last stage, the input tensor
@@ -854,7 +788,7 @@ class UnifiedMultipleChunksPipelineScheduler(ZeroBubblePipelineVShapeScheduler):
 
         return input_obj_grad
 
-    def _forward_backward_step(self, engine, return_loss=True, return_output_label=True, batch_count = 0):
+    def _forward_backward_step(self, engine, return_loss=True, return_output_label=True, batch_count=0):
         """
         This function schedules the forward and backward computation of microbatches in the pipeline in a 1F1B manner.
         It consists of three stages: warmup, 1F1B, and cooldown.
@@ -963,7 +897,7 @@ class UnifiedMultipleChunksPipelineScheduler(ZeroBubblePipelineVShapeScheduler):
                 self._input_objs[chunk_id].append(input_obj)
                 # Perform forward computation
                 start_time = time.perf_counter()
-                output_obj = self._forward_step(engine, stage_id, chunk_id, input_obj)  
+                output_obj = self._forward_step(engine, chunk_id, input_obj)  
                 end_time = time.perf_counter()
                 json_content = {"local_rank":local_rank, "chunk_id":chunk_id, "microbatch_id":microbatch_id, "step_type":step_type, "operation":"compute", "start_time":start_time,  "timespan":(end_time - start_time)}
                 write_json(jsonpath,json_content)
@@ -1029,7 +963,7 @@ class UnifiedMultipleChunksPipelineScheduler(ZeroBubblePipelineVShapeScheduler):
                                 )
                             )
                 if global_rank == next_global_rank:#相同rank节点之间无需传输
-                    recv_forward_queue_list[chunk_id+1].put(output_obj.clone().detach().requires_grad_())
+                    recv_forward_queue_list[chunk_id+1].put(output_obj.clone().detach().requires_grad_())#fix
                     send_forward_once = False
                 elif stage_id<last_stage and send_forward_once:
                     comm.send_forward(

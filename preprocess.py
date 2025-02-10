@@ -131,8 +131,10 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
                     next_end_dist = distence((stage_ops[m + 1][-1] if m + 1 < len(stage_ops) else end_time), interval_start, interval_end)
                     # 找到最小距离
                     min_dist = min(current_start_dist, current_end_dist, next_start_dist,next_end_dist)
-
-                    if min_dist == current_start_dist:
+                    #这里将这个判断提前，为了防止出现两个操作各自的结束和开始在同一个时间点的情况，尽量让交给下一个操作前接收
+                    if min_dist == next_start_dist:
+                        break
+                    elif min_dist == current_start_dist:
                         comm_op['B'].append(('f', prev_end_time, recvFdevice_id, prev_stage_id,prev_chunk_id, prev_microbatch_id, n, 0))
                         received_prev_stage.add(prev_op)  # 标记为已接收
                         continue
@@ -140,8 +142,6 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
                         comm_op['A'].append(('f',prev_end_time, recvFdevice_id, prev_stage_id,prev_chunk_id, prev_microbatch_id, n, 0))
                         received_prev_stage.add(prev_op)  # 标记为已接收
                         continue
-                    elif min_dist == next_start_dist:
-                        break
                     elif min_dist == next_end_dist:
                         break
 
@@ -178,8 +178,10 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
                     next_end_dist = distence((stage_ops[m + 1][-1] if m + 1 < len(stage_ops) else end_time), interval_start, interval_end)
                     # 找到最小距离
                     min_dist = min(current_start_dist, current_end_dist, next_start_dist, next_end_dist)
-
-                    if min_dist == current_start_dist:
+                    #这里将这个判断提前，为了防止出现两个操作各自的结束和开始在同一个时间点的情况，尽量让交给下一个操作前接收
+                    if min_dist == next_start_dist:
+                        break
+                    elif min_dist == current_start_dist:
                         comm_op['B'].append(('b', next_end_time, recvBdevice_id, next_stage_id, next_chunk_id, next_microbatch_id,n,0))
                         received_next_stage.add(next_op)
                         continue
@@ -187,8 +189,6 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
                         comm_op['A'].append(('b', next_end_time, recvBdevice_id, next_stage_id, next_chunk_id, next_microbatch_id,n,0))
                         received_next_stage.add(next_op)
                         continue
-                    elif min_dist == next_start_dist:
-                        break
                     elif min_dist == next_end_dist:
                         break
             comm_op['B'].sort(key=lambda x:x[1])

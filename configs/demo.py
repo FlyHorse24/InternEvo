@@ -62,7 +62,7 @@ data = dict(
     # defaults to the value of micro_num
     valid_micro_num=4,
     # defaults to 0, means disable evaluate
-    valid_every=50,
+    valid_every=5000,
     pack_sample_into_one=False,
     total_steps=50000,
     skip_batches="",

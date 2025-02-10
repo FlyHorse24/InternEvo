@@ -60,7 +60,7 @@ function drawTimeline(data) {
     const blockHeightY = 16;
     const blockHeight = 30;         // 每个block的高度
     const rowSpacing = 20;          // 行间距
-    const rowHeight = blockHeight * 2 + rowSpacing; // 每行的总高度
+    var rowHeight = blockHeight * 2 + rowSpacing; // 每行的总高度
     const xOffset = 100;            // 左边距
     const yOffset = 30;             // 上边距
 
@@ -84,7 +84,7 @@ function drawTimeline(data) {
 
     // Draw timeline for each stage
     stages.forEach((localRank, index) => {
-        const y = index * rowHeight + yOffset;
+        var y = index * rowHeight + yOffset;
 
         // 绘制stage标签
         ctx.fillStyle = 'black';
@@ -93,19 +93,28 @@ function drawTimeline(data) {
 
         // 绘制compute类型的block
         data[localRank].compute.forEach(block => {
-            const x = block.start_time+ xOffset;
-            const width = block.timespan;// 增加宽度最小值，避免block太小
-            //const alpha = 1-block.chunk_id/maxChunkId;
+            var x = block.start_time+ xOffset;
+            var width = block.timespan;// 增加宽度最小值，避免block太小
+            var alpha = 0.5-(block.chunk_id/2);//(maxChunkId+1);
             // 根据step_type设置颜色
             switch (block.step_type) {
                 case 'f':
-                    color = 'rgba(0, 0, 255, 1)';
+                    color = 'rgba(0, 0, 255)';
+                    if (block.chunk_id == 1){
+                        color = 'rgba(0, 0, 255, 0.5)'
+                    }
                     break;
                 case 'b':
-                    color = 'rgba(255, 255, 0, 1)';
+                    color = 'rgba(255, 255, 0)';
+                    if (block.chunk_id == 1){
+                        color = 'rgba(255, 255, 0, 0.5)'
+                    }
                     break;
                 case 'w':
-                    color = 'rgba(0, 255, 0, 1)';
+                    color = 'rgba(0, 255, 0)';
+                    if (block.chunk_id == 1){
+                        color = 'rgba(0, 255, 0, 0.5)';
+                    }
                     break;
                 default:
                     // 可以添加默认的颜色和位置设置
@@ -170,7 +179,7 @@ function drawTimeline(data) {
 }
 
 // 处理数据并绘制图形
-fetch('/jsonResult/iter_20_opeartion_list.json')
+fetch('/jsonResult/Interleaved/iter_0_opeartion_list.json')
     .then(response => response.text())
     .then(text => {
         // 将文本按JSON对象分割并解析
