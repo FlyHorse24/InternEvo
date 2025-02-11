@@ -1390,7 +1390,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         assert (
             forward_only or return_loss
         ), "The argument 'return_loss' has to be True when 'forward_only' is False, but got False."
-        #gpc.v_shape = True#fix, this is special for v_shape
+
         gpc.set_virtual_pipeline_parallel_rank(0)
 
         self.load_batch(engine, data_iter)

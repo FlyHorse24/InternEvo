@@ -64,6 +64,14 @@ def do_compute():
     for i in range(random.randint(1,10000)):
         result = torch.bmm(x.unsqueeze(0), x.unsqueeze(0))
     return result
+def judge_Vshape_like(stage_placement):
+    mutex = False
+    for stages in stage_placement:
+        for s in stages:
+            if s+1 in stages:
+                mutex = True
+                break
+    return mutex
 
 def write_json(jsonpath, content):
     with open(jsonpath, 'a',encoding='utf-8') as f:
@@ -72,47 +80,6 @@ class Stage(Enum):
     FORWARD = 'f'
     BACKWARD = 'b'
     WEIGHT = 'w'
-
-class UnifiedSingleChunkPipelineScheduler(PipelineScheduler):
-    """
-    A helper schedule class for pipeline parallelism running environment.
-    It uses non-interleaved 1F1B strategy. Other properties are similar as
-    :class:`NonPipelineSchedule`.
-
-    Args:
-        num_microbatches (int): The number of microbatches.
-        dtype (torch.dtype): Type of data. torch.float by default.
-        data_process_func (Callable, optional):
-            The post processing function which receives a micro batch of data, and it will be executed
-            in `load_micro_batch`.
-        tensor_shape (torch.Size, optional): Specified shape in pipeline communication.
-        scatter_gather_tensors (bool, optional):
-            If set to `True`, communication will be reduced over pipeline when using 1D tensor parallelization.
-        scheduler_hooks (Optional[List[SchedulerHook]], optional): List of scheduler hooks.
-    """
-
-    def __init__(
-        self,
-        num_microbatches: int,
-        dtype: torch.dtype = torch.float,
-        data_process_func: Callable = None,
-        tensor_shape: Union[torch.Size, List[int], Tuple[int]] = None,
-        scatter_gather_tensors: bool = False,
-        scheduler_hooks: Optional[List[SchedulerHook]] = None,
-        optimizer: Optimizer = None,
-        unified_scheduler: List[tuple] = None,
-    ):
-        super().__init__(
-            num_microbatches,
-            dtype=dtype,
-            data_process_func=data_process_func,
-            tensor_shape=tensor_shape,
-            scatter_gather_tensors=scatter_gather_tensors,
-            scheduler_hooks=scheduler_hooks,
-        )
-        WeightGradStore.set_pp_mode("ZBH1")
-        WeightGradStore.set_optim(optimizer)
-        self.unified_scheduler = unified_scheduler
 
 LOG_RANKS = [0,1,2,3,4,5,6,7]
 def debug_print(input_rank, msg: str) -> None:
@@ -740,53 +707,15 @@ class UnifiedMultipleChunksPipelineScheduler(ZeroBubblePipelineVShapeScheduler):
             scheduler_hooks=scheduler_hooks,
         )
 
-        WeightGradStore.set_pp_mode("ZBV")
-        WeightGradStore.set_optim(optimizer)
         self.unified_scheduler = unified_scheduler
         self.stage_placement = stage_placement
         self.comm_graph = comm_graph
         self.last_stage = max([stage_id for _, stage_id in stage_placement])
 
-    def _schedule_backward(self, engine, stage_id, chunk_id):
-        """
-        Backward step for passed-in model. If it is the last stage, the input tensor
-        is obtained from the previous forward step, otherwise the passed-in input_obj is used.
-        Returns input tensor gradient. This is a helper function and can be ignored by users.
-
-        Args:
-            engine (colossalai.engine.Engine): Colossalai engine for training and inference.
-            chunk_id (int): The id of model chunks.
-            step_id (int): The current step id.
-
-        Returns:
-            Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]: input tensor gradient.
-        """
-        gpc.set_virtual_pipeline_parallel_rank(chunk_id)
-        
-        self._backward_step_num[chunk_id] += 1
-        if self._backward_step_num[chunk_id] == self._num_microbatches:
-            skip_grad_sync = False
+        if judge_Vshape_like(self.stage_placement):
+            gpc.v_shape = True
         else:
-            skip_grad_sync = True
-
-        # if stage_id == self.last_stage and len(self._output_obj_grads[chunk_id]) == 0:
-        #     self._output_obj_grads[chunk_id].append(None)
-
-        input_obj = self._input_objs[chunk_id].pop(0)
-        output_obj = self._output_objs[chunk_id].pop(0)
-        output_obj_grad = self._output_obj_grads[chunk_id].pop(0)
-        moe_loss = self._moe_losses[chunk_id].pop(0)
-
-        if stage_id < self.last_stage:
-            assert output_obj_grad is not None
-        if stage_id > 0:
-            assert input_obj is not None
-
-        input_obj_grad = self._backward_step(engine, input_obj, output_obj, output_obj_grad, skip_grad_sync, moe_loss)
-
-        WeightGradStore.flush()
-
-        return input_obj_grad
+            gpc.v_shape = False
 
     def _forward_backward_step(self, engine, return_loss=True, return_output_label=True, batch_count=0):
         """
@@ -889,12 +818,12 @@ class UnifiedMultipleChunksPipelineScheduler(ZeroBubblePipelineVShapeScheduler):
 
             if step_type == Stage.FORWARD.value:# Forward pass
                 # Receive the input from the previous stage
+                input_obj = None
                 if stage_id>0:
                     if recv_forward_queue_list[chunk_id].qsize()>0:
                         input_obj = recv_forward_queue_list[chunk_id].get()
-                else:
-                    input_obj = None
-                self._input_objs[chunk_id].append(input_obj)
+                        self._input_objs[chunk_id].append(input_obj)
+
                 # Perform forward computation
                 start_time = time.perf_counter()
                 output_obj = self._forward_step(engine, chunk_id, input_obj)  
@@ -973,18 +902,19 @@ class UnifiedMultipleChunksPipelineScheduler(ZeroBubblePipelineVShapeScheduler):
                     )
 
             elif step_type == Stage.BACKWARD.value:# Backward pass
-
+                output_obj_grad = None
                 if stage_id<last_stage:
                     if recv_backward_queue_list[chunk_id].qsize()>0:
                         output_obj_grad = recv_backward_queue_list[chunk_id].get()
-                else:
-                    output_obj_grad = None
-
-                self._output_obj_grads[chunk_id].append(output_obj_grad)
+                        self._output_obj_grads[chunk_id].append(output_obj_grad)
 
                 start_time = time.perf_counter()
                 origin_skip = engine.optimizer.skip_grad_reduce
-                input_obj_grad = self._schedule_backward(engine, stage_id, chunk_id)
+                if gpc.v_shape:
+                    input_obj_grad = self._schedule_backward(engine, chunk_id)
+                else:
+                    input_obj_grad = self._backward_step(engine, chunk_id, microbatch_id)
+                    WeightGradStore.flush()
                 end_time =time.perf_counter()
                 json_content = {"local_rank":local_rank, "chunk_id":chunk_id, "microbatch_id":microbatch_id, "step_type":step_type, "operation":"compute", "start_time":start_time,  "timespan":(end_time - start_time)}
                 write_json(jsonpath,json_content)
