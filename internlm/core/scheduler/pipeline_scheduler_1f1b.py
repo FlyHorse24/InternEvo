@@ -913,7 +913,8 @@ class InterleavedPipelineScheduler(PipelineScheduler):
 
         if gpc.is_pipeline_last_stage() and len(self._output_obj_grads[chunk_id]) == 0:
             self._output_obj_grads[chunk_id].append(None)
-
+        # import pdb;
+        # pdb.set_trace()
         input_obj = self._input_objs[chunk_id].pop(0)
         output_obj = self._output_objs[chunk_id].pop(0)
         output_obj_grad = self._output_obj_grads[chunk_id].pop(0)
