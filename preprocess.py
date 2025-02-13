@@ -98,7 +98,11 @@ def order_result_mutichunk(input: str, stage_alignment: list) -> None:
 def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_data 是之前生成的计算图
     # 初始化通信图
     communication_graph = []
-    max_stage_id = max([stage_id for _, stage_id in stage_alignment])
+
+
+    # 找到最大值
+    max_stage_id = max([stage_id for row in stage_alignment for stage_id in row])
+
 
     # import pdb;pdb.set_trace()
     # 遍历每个 stage
@@ -249,7 +253,7 @@ def comm_graph_muti_chunk(grouped_data, stage_alignment):   # 假设 grouped_dat
     #print(communication_graph)
 def detect_deadlock_mutichunk(communication_graph, stage_alignment):
     sendFtoSameDevice,sendBtoSameDevice = SendToSameDevice(stage_alignment)
-    max_stage_id = max([stage_id for _, stage_id in stage_alignment])
+    max_stage_id = max([stage_id for row in stage_alignment for stage_id in row])
     for rank_id, rank_ops in enumerate(communication_graph):
         len_rank_ops = len(rank_ops)
         for current_index, op in enumerate(rank_ops):
@@ -320,203 +324,219 @@ def detect_deadlock_mutichunk(communication_graph, stage_alignment):
 
 
 
-def order_result(input_str):
-    data = input_str.replace(" ","").split('\n')
-    #print(data)
+# def order_result(input_str):
+#     data = input_str.replace(" ","").split('\n')
+#     #print(data)
 
-    # 创建一个字典来存储合并后的元组
-    merged_data = {}
+#     # 创建一个字典来存储合并后的元组
+#     merged_data = {}
 
-    # 解析数据并合并
-    for entry in data:
-        if entry == '':
-            continue
-        parts = entry.split(',')
-        print(parts)
-        # time = float(parts[1])
-        # op_info = parts[0].split('_')
-        # op = op_info[0]
-        # microbatch_id = int(op_info[1])
-        # stage_id = int(op_info[2])
+#     # 解析数据并合并
+#     for entry in data:
+#         if entry == '':
+#             continue
+#         parts = entry.split(',')
+#         print(parts)
+#         # time = float(parts[1])
+#         # op_info = parts[0].split('_')
+#         # op = op_info[0]
+#         # microbatch_id = int(op_info[1])
+#         # stage_id = int(op_info[2])
         
-        # if 'e' in parts[0]:
-        #     key = (op, microbatch_id, stage_id)
-        #     if key in merged_data:
-        #         merged_data[key] = (merged_data[key][0], merged_data[key][1], merged_data[key][2], merged_data[key][3], time)
-        # else:
-        #     key = (op, microbatch_id, stage_id)
-        #     merged_data[key] = (op, microbatch_id, stage_id, time, None)
-        start_time = float(parts[1])
-        end_time = float(parts[2])
-        op_info = parts[0].split('_')
-        op = op_info[0]
-        microbatch_id = int(op_info[1])
-        stage_id = int(op_info[2])
-        key = (op, microbatch_id, stage_id)
-        merged_data[key] = (op, microbatch_id, stage_id, start_time, end_time)
-    # 按照stage_id分组
-    grouped_data = {}
-    for key, value in merged_data.items():
-        stage_id = key[2]
-        if stage_id not in grouped_data:
-            grouped_data[stage_id] = []
-        grouped_data[stage_id].append(value)
+#         # if 'e' in parts[0]:
+#         #     key = (op, microbatch_id, stage_id)
+#         #     if key in merged_data:
+#         #         merged_data[key] = (merged_data[key][0], merged_data[key][1], merged_data[key][2], merged_data[key][3], time)
+#         # else:
+#         #     key = (op, microbatch_id, stage_id)
+#         #     merged_data[key] = (op, microbatch_id, stage_id, time, None)
+#         start_time = float(parts[1])
+#         end_time = float(parts[2])
+#         op_info = parts[0].split('_')
+#         op = op_info[0]
+#         microbatch_id = int(op_info[1])
+#         stage_id = int(op_info[2])
+#         key = (op, microbatch_id, stage_id)
+#         merged_data[key] = (op, microbatch_id, stage_id, start_time, end_time)
+#     # 按照stage_id分组
+#     grouped_data = {}
+#     for key, value in merged_data.items():
+#         stage_id = key[2]
+#         if stage_id not in grouped_data:
+#             grouped_data[stage_id] = []
+#         grouped_data[stage_id].append(value)
 
-    # 对每个分组按照开始时间进行排序
-    for stage_id in grouped_data:
-        grouped_data[stage_id].sort(key=lambda x: x[3])
+#     # 对每个分组按照开始时间进行排序
+#     for stage_id in grouped_data:
+#         grouped_data[stage_id].sort(key=lambda x: x[3])
 
-    # 将结果转换为二维列表
-    result = [grouped_data[stage_id] for stage_id in sorted(grouped_data.keys())]
-    return result
-def detect_deadlock(communication_graph):
-    for rank_id, rank_ops in enumerate(communication_graph):
-        for op in rank_ops:
-            op_type, microbatch_id = op['Infor']
-            if op_type == 'f':
-                for i in range(len(op['A'])):
-                    recv_op_type, recv_end_time, recv_microbatch_id,_ = op['A'][i]
-                    if recv_op_type == 'b':
-                        # 检查下一个 rank 中对应的 b 操作
-                        next_rank_id = rank_id + 1
-                        if next_rank_id < len(communication_graph):
-                            for next_op in communication_graph[next_rank_id]:
-                                next_op_type, next_microbatch_id = next_op['Infor']
-                                if next_op_type == 'b' and next_microbatch_id == recv_microbatch_id:
-                                    for j in range(len(next_op['A'])):
-                                        next_recv_op_type, next_recv_end_time, next_recv_microbatch_id,_ = next_op['A'][j]
-                                        if next_recv_op_type == 'f' and next_recv_microbatch_id == microbatch_id:
-                                            # 发现死锁
-                                            print(f"Deadlock detected: Rank {rank_id} operation {op['Infor']} and Rank {next_rank_id} operation {next_op['Infor']} form a cycle.")
-                                            # 在原有的 A 列表中增加一个判断标志
-                                            op['A'][i] = (recv_op_type, recv_end_time, recv_microbatch_id, 1)
-                                            next_op['A'][j] = (next_recv_op_type, next_recv_end_time, next_recv_microbatch_id, 1)
-    return communication_graph
-def comm_graph(grouped_data):   # 假设 grouped_data 是之前生成的计算图
-    # 初始化通信图
-    communication_graph = []
+#     # 将结果转换为二维列表
+#     result = [grouped_data[stage_id] for stage_id in sorted(grouped_data.keys())]
+#     return result
+# def detect_deadlock(communication_graph):
+#     for rank_id, rank_ops in enumerate(communication_graph):
+#         for op in rank_ops:
+#             op_type, microbatch_id = op['Infor']
+#             if op_type == 'f':
+#                 for i in range(len(op['A'])):
+#                     recv_op_type, recv_end_time, recv_microbatch_id,_ = op['A'][i]
+#                     if recv_op_type == 'b':
+#                         # 检查下一个 rank 中对应的 b 操作
+#                         next_rank_id = rank_id + 1
+#                         if next_rank_id < len(communication_graph):
+#                             for next_op in communication_graph[next_rank_id]:
+#                                 next_op_type, next_microbatch_id = next_op['Infor']
+#                                 if next_op_type == 'b' and next_microbatch_id == recv_microbatch_id:
+#                                     for j in range(len(next_op['A'])):
+#                                         next_recv_op_type, next_recv_end_time, next_recv_microbatch_id,_ = next_op['A'][j]
+#                                         if next_recv_op_type == 'f' and next_recv_microbatch_id == microbatch_id:
+#                                             # 发现死锁
+#                                             print(f"Deadlock detected: Rank {rank_id} operation {op['Infor']} and Rank {next_rank_id} operation {next_op['Infor']} form a cycle.")
+#                                             # 在原有的 A 列表中增加一个判断标志
+#                                             op['A'][i] = (recv_op_type, recv_end_time, recv_microbatch_id, 1)
+#                                             next_op['A'][j] = (next_recv_op_type, next_recv_end_time, next_recv_microbatch_id, 1)
+#     return communication_graph
+# def comm_graph(grouped_data):   # 假设 grouped_data 是之前生成的计算图
+#     # 初始化通信图
+#     communication_graph = []
 
-    # 标记已经接收的操作
-    received_prev_stage = [set() for _ in grouped_data]  # 记录每个 stage 中已经接收的 f 操作
-    received_next_stage = [set() for _ in grouped_data]  # 记录每个 stage 中已经接收的 b 操作
-    # import pdb;pdb.set_trace()
-    # 遍历每个 stage
-    for stage_id, stage_ops in enumerate(grouped_data):
+#     # 标记已经接收的操作
+#     received_prev_stage = [set() for _ in grouped_data]  # 记录每个 stage 中已经接收的 f 操作
+#     received_next_stage = [set() for _ in grouped_data]  # 记录每个 stage 中已经接收的 b 操作
+#     # import pdb;pdb.set_trace()
+#     # 遍历每个 stage
+#     for stage_id, stage_ops in enumerate(grouped_data):
 
-        communication_stage = []
+#         communication_stage = []
 
-        for m, current_op in enumerate(stage_ops):
-            op, microbatch_id, current_stage_id, start_time, end_time = current_op
-            comm_op = {}
-            comm_op['Infor'] = (op, microbatch_id)
-            comm_op['B'] = []
-            comm_op['A'] = []
-            # if op != 'f' and op !='b':
-            #     communication_stage.append(comm_op)
-            #     continue
+#         for m, current_op in enumerate(stage_ops):
+#             op, microbatch_id, current_stage_id, start_time, end_time = current_op
+#             comm_op = {}
+#             comm_op['Infor'] = (op, microbatch_id)
+#             comm_op['B'] = []
+#             comm_op['A'] = []
+#             # if op != 'f' and op !='b':
+#             #     communication_stage.append(comm_op)
+#             #     continue
 
-            # 初始化通信元组
+#             # 初始化通信元组
             
-            # 处理上一个 stage (stage-1)
-            if stage_id > 0:
-                prev_stage_ops = grouped_data[stage_id - 1]
-                for n, prev_op in enumerate(prev_stage_ops):
-                    prev_op_name, prev_microbatch_id, prev_stage_id, prev_start_time, prev_end_time = prev_op
-                    if prev_start_time > end_time:
-                        break
-                    if prev_op_name != 'f':
-                        continue
-                    # 跳过已经接收的 f 操作
-                    if n in received_prev_stage[stage_id - 1]:
-                        continue
-                    # 如果本次操作为f 且microbatch_id 相同
-                    if op == 'f' and prev_microbatch_id == microbatch_id:           
-                        comm_op['B'].append(('f',prev_end_time,prev_microbatch_id, 0))
-                        received_prev_stage[stage_id - 1].add(n)  # 标记为已接收
-                        continue
+#             # 处理上一个 stage (stage-1)
+#             if stage_id > 0:
+#                 prev_stage_ops = grouped_data[stage_id - 1]
+#                 for n, prev_op in enumerate(prev_stage_ops):
+#                     prev_op_name, prev_microbatch_id, prev_stage_id, prev_start_time, prev_end_time = prev_op
+#                     if prev_start_time > end_time:
+#                         break
+#                     if prev_op_name != 'f':
+#                         continue
+#                     # 跳过已经接收的 f 操作
+#                     if n in received_prev_stage[stage_id - 1]:
+#                         continue
+#                     # 如果本次操作为f 且microbatch_id 相同
+#                     if op == 'f' and prev_microbatch_id == microbatch_id:           
+#                         comm_op['B'].append(('f',prev_end_time,prev_microbatch_id, 0))
+#                         received_prev_stage[stage_id - 1].add(n)  # 标记为已接收
+#                         continue
 
-                    # 计算时间区间
-                    interval_start = prev_end_time
-                    interval_end = prev_stage_ops[n + 1][3] if n + 1 < len(prev_stage_ops) else prev_end_time
+#                     # 计算时间区间
+#                     interval_start = prev_end_time
+#                     interval_end = prev_stage_ops[n + 1][3] if n + 1 < len(prev_stage_ops) else prev_end_time
 
-                    # 计算三个时间点与区间的距离
-                    current_start_dist = distence(start_time, interval_start, interval_end)
-                    current_end_dist = distence(end_time, interval_start, interval_end)
-                    next_start_dist = distence((stage_ops[m + 1][3] if m + 1 < len(stage_ops) else end_time), interval_start, interval_end)
-                    next_end_dist = distence((stage_ops[m + 1][4] if m + 1 < len(stage_ops) else end_time), interval_start, interval_end)
-                    # 找到最小距离
-                    min_dist = min(current_start_dist, current_end_dist, next_start_dist,next_end_dist)
+#                     # 计算三个时间点与区间的距离
+#                     current_start_dist = distence(start_time, interval_start, interval_end)
+#                     current_end_dist = distence(end_time, interval_start, interval_end)
+#                     next_start_dist = distence((stage_ops[m + 1][3] if m + 1 < len(stage_ops) else end_time), interval_start, interval_end)
+#                     next_end_dist = distence((stage_ops[m + 1][4] if m + 1 < len(stage_ops) else end_time), interval_start, interval_end)
+#                     # 找到最小距离
+#                     min_dist = min(current_start_dist, current_end_dist, next_start_dist,next_end_dist)
 
-                    if min_dist == current_start_dist:
-                        comm_op['B'].append(('f',prev_end_time, prev_microbatch_id,0))
-                        received_prev_stage[stage_id - 1].add(n)  # 标记为已接收
-                        continue
-                    elif min_dist == current_end_dist:
-                        comm_op['A'].append(('f',prev_end_time, prev_microbatch_id,0))
-                        received_prev_stage[stage_id - 1].add(n)  # 标记为已接收
-                        continue
-                    elif min_dist == next_start_dist:
-                        break
-                    elif min_dist == next_end_dist:
-                        break
+#                     if min_dist == current_start_dist:
+#                         comm_op['B'].append(('f',prev_end_time, prev_microbatch_id,0))
+#                         received_prev_stage[stage_id - 1].add(n)  # 标记为已接收
+#                         continue
+#                     elif min_dist == current_end_dist:
+#                         comm_op['A'].append(('f',prev_end_time, prev_microbatch_id,0))
+#                         received_prev_stage[stage_id - 1].add(n)  # 标记为已接收
+#                         continue
+#                     elif min_dist == next_start_dist:
+#                         break
+#                     elif min_dist == next_end_dist:
+#                         break
 
-            # 处理下一个 stage (stage+1)
-            if stage_id < len(grouped_data) - 1:
-                next_stage_ops = grouped_data[stage_id + 1]
-                for n, next_op in enumerate(next_stage_ops):
-                    next_op_name, next_microbatch_id, next_stage_id, next_start_time, next_end_time = next_op
-                    if next_start_time > end_time:
-                        break
-                    if next_op_name != 'b':
-                        continue
-                    # 跳过已经接收的 f 操作
-                    if n in received_next_stage :
-                        continue
+#             # 处理下一个 stage (stage+1)
+#             if stage_id < len(grouped_data) - 1:
+#                 next_stage_ops = grouped_data[stage_id + 1]
+#                 for n, next_op in enumerate(next_stage_ops):
+#                     next_op_name, next_microbatch_id, next_stage_id, next_start_time, next_end_time = next_op
+#                     if next_start_time > end_time:
+#                         break
+#                     if next_op_name != 'b':
+#                         continue
+#                     # 跳过已经接收的 f 操作
+#                     if n in received_next_stage :
+#                         continue
 
-                    # 如果本次操作为b 且 microbatch_id 相同
-                    if op == 'b' and next_microbatch_id == microbatch_id:
-                        comm_op['B'].append(('b', next_end_time, next_microbatch_id,0))
-                        received_next_stage.add(next_op)  # 标记为已接收
-                        continue
+#                     # 如果本次操作为b 且 microbatch_id 相同
+#                     if op == 'b' and next_microbatch_id == microbatch_id:
+#                         comm_op['B'].append(('b', next_end_time, next_microbatch_id,0))
+#                         received_next_stage.add(next_op)  # 标记为已接收
+#                         continue
 
-                    # 计算时间区间
-                    interval_start = next_end_time
-                    interval_end = next_stage_ops[n + 1][3] if n + 1 < len(next_stage_ops) else next_end_time
+#                     # 计算时间区间
+#                     interval_start = next_end_time
+#                     interval_end = next_stage_ops[n + 1][3] if n + 1 < len(next_stage_ops) else next_end_time
 
-                    # 计算三个时间点与区间的距离
-                    current_start_dist = distence(start_time, interval_start, interval_end)
-                    current_end_dist = distence(end_time, interval_start, interval_end)
-                    next_start_dist = distence((stage_ops[m + 1][3] if m + 1 < len(stage_ops) else end_time), interval_start, interval_end)
-                    next_end_dist = distence((stage_ops[m + 1][4] if m + 1 < len(stage_ops) else end_time), interval_start, interval_end)
-                    # 找到最小距离
-                    min_dist = min(current_start_dist, current_end_dist, next_start_dist, next_end_dist)
+#                     # 计算三个时间点与区间的距离
+#                     current_start_dist = distence(start_time, interval_start, interval_end)
+#                     current_end_dist = distence(end_time, interval_start, interval_end)
+#                     next_start_dist = distence((stage_ops[m + 1][3] if m + 1 < len(stage_ops) else end_time), interval_start, interval_end)
+#                     next_end_dist = distence((stage_ops[m + 1][4] if m + 1 < len(stage_ops) else end_time), interval_start, interval_end)
+#                     # 找到最小距离
+#                     min_dist = min(current_start_dist, current_end_dist, next_start_dist, next_end_dist)
 
-                    if min_dist == current_start_dist:
-                        comm_op['B'].append(('b', next_end_time,next_microbatch_id,0))
-                        received_next_stage.add(next_op)
-                        continue
-                    elif min_dist == current_end_dist:
-                        comm_op['A'].append(('b', next_end_time, next_microbatch_id,0))
-                        received_next_stage.add(next_op)
-                        continue
-                    elif min_dist == next_start_dist:
-                        break
-                    elif min_dist == next_end_dist:
-                        break
-            comm_op['B'].sort(key=lambda x:x[1])
-            comm_op['A'].sort(key=lambda x:x[1])
+#                     if min_dist == current_start_dist:
+#                         comm_op['B'].append(('b', next_end_time,next_microbatch_id,0))
+#                         received_next_stage.add(next_op)
+#                         continue
+#                     elif min_dist == current_end_dist:
+#                         comm_op['A'].append(('b', next_end_time, next_microbatch_id,0))
+#                         received_next_stage.add(next_op)
+#                         continue
+#                     elif min_dist == next_start_dist:
+#                         break
+#                     elif min_dist == next_end_dist:
+#                         break
+#             comm_op['B'].sort(key=lambda x:x[1])
+#             comm_op['A'].sort(key=lambda x:x[1])
 
-            # 将通信元组添加到当前 stage 的通信图中
-            communication_stage.append(comm_op)
+#             # 将通信元组添加到当前 stage 的通信图中
+#             communication_stage.append(comm_op)
 
-        # 将当前 stage 的通信图添加到总的通信图中
-        communication_graph.append(communication_stage)
-        #print(communication_stage)
-    communication_graph = detect_deadlock(communication_graph)
-    print(communication_graph)
-    # # 输出通信图
-    # for stage_id, comm_stage in enumerate(communication_graph):
-    #     print(f"Stage {stage_id}: {comm_stage}")
+#         # 将当前 stage 的通信图添加到总的通信图中
+#         communication_graph.append(communication_stage)
+#         #print(communication_stage)
+#     communication_graph = detect_deadlock(communication_graph)
+#     print('[')
+#     # # 输出通信图
+#     for rank_id, comm_stage in enumerate(communication_graph):
+#         recvF = 0
+#         recvB = 0
+#         for comm_op in comm_stage:
+#             for recvlistB in comm_op['B']:
+#                 if recvlistB[0] == 'b':
+#                     recvB += 1
+#                 elif recvlistB[0] == 'f':
+#                     recvF += 1
+#             for recvlistA in comm_op['A']:
+#                 if recvlistA[0] == 'b':
+#                     recvB += 1
+#                 elif recvlistA[0] == 'f':
+#                     recvF += 1
+#         #print(f"rank_id {rank_id}: recvF {recvF}, recvB {recvB}")
+#         print(f'{comm_stage},')
+#     print(']')
+
 
 if __name__ == '__main__':
 #     stage_alignment = [[0,15],[1,14],[2,13],[3,12],[4,11],[5,10],[6,9],[7,8]]#[[0,8],[1,9],[2,10],[3,11],[4,12],[5,13],[6,14],[7,15]]#[[0,4],[1,5],[2,6],[3,7]]##[[0,7],[1,6],[2,5],[3,4]]#[[0,4],[1,5],[2,6],[3,7]]
@@ -1293,6 +1313,71 @@ if __name__ == '__main__':
 #     result = order_result_mutichunk(input_str,stage_alignment)
 #     comm_graph_muti_chunk(result,stage_alignment)
 
-    input_str=''
-
+    input_str='''f_0_0,0,25
+f_1_0,25,50
+f_0_1,25,49
+f_0_2,49,73
+f_2_0,50,75
+f_1_1,50,74
+f_0_3,73,106
+f_1_2,74,98
+f_3_0,75,100
+f_2_1,75,99
+b_0_3,106,177
+b_0_2,177,233
+f_1_3,177,210
+b_1_3,210,281
+b_0_1,233,289
+f_2_2,233,257
+b_1_2,281,337
+f_2_3,281,314
+b_0_0,289,346
+f_3_1,289,313
+b_2_3,314,385
+b_1_1,337,393
+f_3_2,337,361
+f_4_0,345,370
+b_2_2,385,441
+f_3_3,385,418
+b_1_0,393,450
+f_4_1,393,417
+b_3_3,418,489
+b_2_1,441,497
+f_4_2,441,465
+f_5_0,449,474
+b_3_2,489,545
+f_4_3,489,522
+b_2_0,497,554
+f_5_1,497,521
+b_4_3,522,593
+b_3_1,545,601
+f_5_2,545,569
+f_6_0,553,578
+b_4_2,593,649
+f_5_3,593,626
+b_3_0,601,658
+f_6_1,601,625
+b_5_3,626,697
+b_4_1,649,705
+f_6_2,649,673
+f_7_0,657,682
+b_5_2,697,753
+f_6_3,697,730
+b_4_0,705,762
+f_7_1,705,729
+b_6_3,730,801
+b_5_1,753,809
+f_7_2,753,777
+b_6_2,801,857
+f_7_3,801,834
+b_5_0,809,866
+b_7_3,834,905
+b_6_1,857,913
+b_7_2,905,961
+b_6_0,913,970
+b_7_1,961,1017
+b_7_0,1017,1074'''
+    stage_alignment = [[0],[1],[2],[3]]
+    result = order_result_mutichunk(input_str,stage_alignment)
+    comm_graph_muti_chunk(result,stage_alignment)
 

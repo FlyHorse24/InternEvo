@@ -36,6 +36,9 @@ class WeightGradStore:
     pp_mode = None
     optim = None
     temp = []
+    @classmethod
+    def get_pp_mode(cls):
+        return cls.pp_mode
 
     @classmethod
     def set_pp_mode(cls, mode):
@@ -74,7 +77,6 @@ class WeightGradStore:
         for weight, bias, input_tensor, grad_output, has_d_bias, grad_compute_func, *args in stored_w_grad_computation:
             assert weight.requires_grad
             grad_weight, grad_bias = grad_compute_func(input_tensor, grad_output, has_d_bias)
-
             if is_using_isp():
                 isp_grad_hook = args[0]
                 module = args[1]
